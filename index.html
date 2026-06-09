@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电导率温度系数可视化分析软件 - 极简标定版</title>
+<style>
+/* ========== 设计系统与变量 ========== */
+:root {
+  --bg-app: hsl(222, 28%, 7%);
+  --bg-card: hsla(222, 25%, 12%, 0.6);
+  --bg-glass: hsla(222, 25%, 10%, 0.35);
+  --border-glass: hsla(217, 30%, 18%, 0.5);
+  --border-glass-hover: hsla(180, 80%, 45%, 0.35);
+  --text-primary: hsl(210, 40%, 98%);
+  --text-secondary: hsl(215, 20%, 75%);
+  --text-muted: hsl(217, 10%, 55%);
+  --color-primary: hsl(180, 80%, 45%);
+  --color-primary-rgb: 0, 230, 230;
+  --color-primary-glow: hsla(180, 80%, 45%, 0.12);
+  --color-secondary: #0a84ff;
+  --color-accent: #bf5af2;
+  --color-success: #30d158;
+  --color-danger: #ff453a;
+  --color-warning: #ff9f0a;
+  --card-shadow: 0 12px 40px 0 rgba(0,0,0,0.45), 0 2px 8px 0 rgba(0,0,0,0.2);
+  --inner-glow: inset 0 1px 1px rgba(255,255,255,0.05);
+  --readout-bg: rgba(0,0,0,0.22);
+  --transition-smooth: all 0.3s cubic-bezier(0.25,0.8,0.25,1);
+  --transition-fast: all 0.15s cubic-bezier(0.25,0.8,0.25,1);
+  --border-radius-sm: 8px;
+  --border-radius-md: 14px;
+  --border-radius-lg: 20px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-outfit: 'Outfit', var(--font-sans);
+}
+.light-theme {
+  --bg-app: hsl(210, 24%, 95%);
+  --bg-card: rgba(255,255,255,0.75);
+  --bg-glass: rgba(255,255,255,0.45);
+  --border-glass: rgba(0,0,0,0.07);
+  --border-glass-hover: rgba(0,160,160,0.3);
+  --text-primary: hsl(222, 28%, 12%);
+  --text-secondary: hsl(217, 18%, 32%);
+  --text-muted: hsl(215, 12%, 52%);
+  --color-primary: hsl(180, 85%, 34%);
+  --color-primary-rgb: 0, 140, 140;
+  --color-primary-glow: rgba(0,180,180,0.06);
+  --color-secondary: #0076f6;
+  --color-accent: #9b30d8;
+  --color-success: #24a148;
+  --color-danger: #da1e28;
+  --card-shadow: 0 12px 40px 0 rgba(31,38,135,0.06), 0 2px 8px 0 rgba(0,0,0,0.02);
+  --inner-glow: inset 0 1px 1px rgba(255,255,255,0.4);
+  --readout-bg: rgba(240,242,245,0.8);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-app); color: var(--text-secondary);
+  font-family: var(--font-sans); line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.4s, color 0.4s;
+  overflow: hidden;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-glass); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
+.app-container {
+  max-width: 1600px; margin: 0 auto; padding: 16px;
+  height: 100vh; display: flex; flex-direction: column; gap: 12px;
+}
+.app-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 20px; background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--card-shadow); border-radius: var(--border-radius-md);
+  backdrop-filter: blur(16px); height: 64px; flex-shrink: 0;
+}
+.logo-area { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  border-radius: var(--border-radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
+}
+.logo-icon svg { width: 20px; height: 20px; }
+.logo-text h1 {
+  font-family: var(--font-outfit); font-size: 17px; font-weight: 700;
+  color: var(--text-primary); display: flex; align-items: center; gap: 6px;
+}
+.logo-text p { font-size: 11px; color: var(--text-muted); }
+.badge {
+  font-size: 9px; background: var(--color-primary-glow);
+  border: 1px solid var(--color-primary); color: var(--color-primary);
+  padding: 0 5px; border-radius: 4px; font-weight: 600;
+}
+.icon-btn {
+  width: 36px; height: 36px; border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-glass); background: transparent;
+  color: var(--text-secondary); cursor: pointer; transition: var(--transition-fast);
+  display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-glow); }
+.icon-btn svg { width: 18px; height: 18px; }
+.dashboard-grid {
+  display: grid; grid-template-columns: 390px 1fr 72px;
+  gap: 16px; flex-grow: 1; height: 0; min-height: 0;
+}
+.card {
+  background: var(--bg-card); border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--card-shadow), var(--inner-glow);
+  padding: 16px 20px; backdrop-filter: blur(16px);
+  display: flex; flex-direction: column; gap: 12px;
+  transition: border-color 0.3s;
+}
+.card.glass:hover { border-color: var(--border-glass-hover); }
+.card-header {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 6px; border-bottom: 1px dashed var(--border-glass);
+}
+.card-header.justify-between { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.card-header .icon { font-size: 16px; }
+.card-header h2 { font-size: 14.5px; font-weight: 600; color: var(--text-primary); font-family: var(--font-outfit); }
+.flex-align-center { display: flex; align-items: center; gap: 8px; }
+.control-panel {
+  display: flex; flex-direction: column; gap: 12px;
+  height: 100%; overflow-y: auto; padding-right: 4px;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
+.label-wrapper { display: flex; justify-content: space-between; align-items: center; }
+.static-hint {
+  font-size: 11.5px; font-family: var(--font-outfit);
+  color: var(--color-primary); background: var(--color-primary-glow);
+  padding: 1px 6px; border-radius: 4px;
+}
+input[type="number"], select {
+  width: 100%; height: 36px; padding: 6px 12px;
+  border: 1px solid var(--border-glass); background: var(--bg-glass);
+  color: var(--text-primary); border-radius: var(--border-radius-sm);
+  font-family: var(--font-outfit); font-size: 14px;
+  transition: var(--transition-fast); outline: none;
+}
+input[type="number"]:focus, select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.2);
+}
+.input-with-select { display: grid; grid-template-columns: 1fr 105px; gap: 8px; }
+select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
+.highlight-input input, .highlight-input select { border-color: rgba(255,159,10,0.25); }
+.readout-card { gap: 10px; }
+.readout-grid { display: flex; gap: 10px; width: 100%; }
+.readout-segment {
+  flex: 1; background: var(--readout-bg);
+  border: 1px solid var(--border-glass); border-radius: var(--border-radius-sm);
+  padding: 10px 8px; text-align: center;
+  display: flex; flex-direction: column; gap: 2px; justify-content: center;
+}
+.readout-label { font-size: 10px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px; }
+.readout-value {
+  font-family: monospace; font-size: 22px; font-weight: bold;
+  transition: color 0.3s, text-shadow 0.3s;
+}
+.readout-unit { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+.readout-segment.tds-style { border-color: rgba(0,230,230,0.15); }
+.readout-segment.tds-style .readout-value { color: var(--color-primary); text-shadow: 0 0 10px rgba(0,230,230,0.45); }
+.readout-segment.res-style { border-color: rgba(191,90,242,0.15); }
+.readout-segment.res-style .readout-value { color: var(--color-accent); text-shadow: 0 0 10px rgba(191,90,242,0.45); }
+.readout-segment.sal-style { border-color: rgba(255,159,10,0.15); }
+.readout-segment.sal-style .readout-value { color: var(--color-warning); text-shadow: 0 0 10px rgba(255,159,10,0.45); }
+.readout-segment.poh-style { border-color: rgba(10,132,255,0.15); }
+.readout-segment.poh-style .readout-value { color: var(--color-secondary); text-shadow: 0 0 10px rgba(10,132,255,0.45); }
+.readout-status {
+  font-size: 11px; background: var(--border-glass);
+  padding: 4px 10px; border-radius: 6px; text-align: center; font-weight: 500;
+}
+.readout-sub-container { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border-glass); display: flex; flex-direction: column; gap: 6px; }
+.readout-sub-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.readout-sub-item .sub-lbl { font-size: 11.5px; color: var(--text-muted); }
+.readout-sub-item .sub-val { font-family: monospace; font-size: 16px; font-weight: 700; }
+.tds-style .sub-val { color: var(--color-primary); }
+.res-style .sub-val { color: var(--color-accent); }
+.sal-style .sub-val { color: var(--color-warning); }
+.poh-style .sub-val { color: var(--color-secondary); }
+.visualizer-panel.full-height { height: 100%; overflow: hidden; }
+.chart-card.full-height { height: 100%; display: flex; flex-direction: column; }
+.chart-toggle-group {
+  display: flex; background: var(--border-glass);
+  border-radius: var(--border-radius-sm); padding: 2px;
+}
+.chart-mode-btn {
+  border: none; padding: 4px 10px; font-size: 11px;
+  border-radius: 6px; cursor: pointer; background: transparent;
+  color: var(--text-secondary); font-weight: 500;
+  transition: var(--transition-fast); font-family: var(--font-outfit);
+}
+.chart-mode-btn:hover { color: var(--color-primary); }
+.chart-mode-btn.active {
+  background: var(--bg-card); color: var(--color-primary);
+  font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.chart-legend-indicator { font-size: 11.5px; display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.chart-legend-indicator .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.chart-legend-indicator .dot.primary { background: var(--color-primary); box-shadow: 0 0 6px var(--color-primary); }
+.chart-legend-indicator .dot.uncomp { background: var(--text-muted); }
+.chart-container { flex-grow: 1; min-height: 160px; position: relative; width: 100%; }
+.chart-half { flex-grow: 1; flex-basis: 0; min-height: 140px; }
+.chart-separator { display: flex; align-items: center; justify-content: center; padding: 2px 0; flex-shrink: 0; }
+.chart-separator-label {
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  background: var(--bg-glass); padding: 2px 12px; border-radius: 10px;
+  border: 1px dashed var(--border-glass); font-family: var(--font-outfit);
+}
+.app-footer {
+  padding: 6px 12px; border-top: 1px solid var(--border-glass);
+  display: flex; flex-direction: column; gap: 2px; align-items: center;
+  font-size: 10px; color: var(--text-muted); text-align: center; flex-shrink: 0;
+}
+.tds-factor-wrapper {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
+  background: var(--readout-bg); border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-sm);
+}
+.factor-header { display: flex; justify-content: space-between; align-items: center; }
+.factor-header label { font-size: 11.5px; font-weight: 500; color: var(--text-primary); }
+.factor-panel, .factor-chart { display: none !important; height: 100%; }
+.factor-panel { flex-direction: column; gap: 12px; }
+.factor-chart { flex-direction: column; }
+.factor-panel.active, .factor-chart.active { display: flex !important; }
+.factor-nav {
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 20px 8px !important; align-items: center; height: 100%;
+}
+.factor-nav-btn {
+  width: 52px; height: 68px; border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-glass); background: var(--bg-glass);
+  color: var(--text-secondary); cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+}
+.factor-nav-btn:hover { border-color: var(--border-glass-hover); color: var(--text-primary); background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+.factor-nav-btn .icon { font-size: 20px; }
+.factor-nav-btn .label { font-size: 9.5px; font-weight: 600; }
+.factor-nav-btn.active[data-factor="ec"] {
+  border-color: var(--color-primary); background: var(--color-primary-glow);
+  color: var(--color-primary); box-shadow: 0 0 15px rgba(var(--color-primary-rgb),0.25);
+}
+.factor-nav-btn.active[data-factor="ph"] {
+  border-color: var(--color-success); background: rgba(48,209,88,0.12);
+  color: var(--color-success); box-shadow: 0 0 15px rgba(48,209,88,0.25);
+}
+@media(max-width:900px){
+  body{overflow-y:auto}
+  .app-container{height:auto}
+  .dashboard-grid{grid-template-columns:1fr;height:auto;display:flex;flex-direction:column}
+  .control-panel{height:auto;overflow:visible}
+  .chart-container{height:300px}
+  .factor-nav{flex-direction:row;width:100%;height:auto;order:-1;justify-content:center;gap:20px;padding:10px!important}
+}
+</style>
+</head>
+<body class="light-theme">
+<div class="app-container">
+  <header class="app-header">
+    <div class="logo-area">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>EC-Temp <span class="badge">Lite v1.0</span></h1>
+        <p>工业传感器阻值-电导率极简仿真标定系统</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="icon-btn" title="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="dashboard-grid">
+    <!-- 左面板 -->
+    <section class="control-panel">
+      <!-- EC 面板 -->
+      <div id="panel-ec" class="factor-panel active">
+        <div class="card glass">
+          <div class="card-header"><span class="icon">&#9881;</span><h2>标定参数配置 (Parameters)</h2></div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>电极常数 (K<sub>cell</sub>)</label><span class="static-hint">cm⁻¹</span></div>
+            <div class="input-with-select">
+              <input type="number" id="cell-constant" value="1.0" min="0.001" max="100" step="0.001">
+              <select id="cell-constant-preset"><option value="1.0">K=1.0</option><option value="0.1">K=0.1</option><option value="0.01">K=0.01</option><option value="10.0">K=10.0</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>温度系数 (&#945;)</label><span class="static-hint">%/°C</span></div>
+            <div class="input-with-select">
+              <input type="number" id="alpha-input" value="2.00" min="0" max="10" step="0.01">
+              <select id="alpha-preset"><option value="1.91">1.91%</option><option value="2.12">2.12%</option><option value="4.55">4.55%</option><option value="2.00" selected>2.00%</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>等效阻值模拟 (R<sub>sim</sub>)</label><span class="static-hint" id="sim-res-calc-cond">50.00 &#956;S/cm</span></div>
+            <div class="input-with-select">
+              <input type="number" id="sim-resistance" value="20000" min="0.01" max="99999999" step="0.1">
+              <select id="sim-res-unit"><option value="ohm">&#937;</option><option value="kohm">k&#937;</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>基准电导率模拟 (K<sub>sim</sub>)</label><span class="static-hint" id="sim-cond-calc-res">20.0 k&#937;</span></div>
+            <div class="input-with-select">
+              <input type="number" id="sim-conductivity" value="50.00" min="0.01" max="99999999" step="0.1">
+              <select id="sim-cond-unit"><option value="uS/cm">&#956;S/cm</option><option value="mS/cm">mS/cm</option></select>
+            </div>
+          </div>
+          <div class="form-group highlight-input">
+            <div class="label-wrapper"><label>当前测试温度 (t<sub>test</sub>)</label><span class="static-hint" style="background:rgba(255,159,10,0.12);color:var(--color-warning);">°C</span></div>
+            <div class="input-with-select">
+              <input type="number" id="test-temp-input" value="25.0" min="-100" max="200" step="0.1">
+              <select id="test-temp-preset" style="border-color:rgba(255,159,10,0.25);color:var(--color-warning);"><option value="25.0">25.0°C</option><option value="0.0">0.0°C</option><option value="100.0">100.0°C</option><option value="50.0">50.0°C</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="card glass readout-card">
+          <div class="card-header"><span class="icon">&#128202;</span><h2>实时测点数码仪</h2></div>
+          <div class="readout-grid">
+            <div class="readout-segment tds-style">
+              <div class="readout-label">总固体溶解度 (TDS)</div>
+              <div class="readout-value" id="readout-tds">---</div>
+              <div class="readout-unit">ppm</div>
+              <div class="readout-sub-container">
+                <div class="readout-sub-item"><span class="sub-val" id="sub-tds-mgl">---</span><span class="sub-lbl">mg/L</span></div>
+                <div class="readout-sub-item"><span class="sub-val" id="sub-tds-gl">---</span><span class="sub-lbl">g/L</span></div>
+              </div>
+            </div>
+            <div class="readout-segment res-style">
+              <div class="readout-label">物理电阻率 (&#961;<sub>t</sub>)</div>
+              <div class="readout-value" id="readout-res">---</div>
+              <div class="readout-unit">M&#937;·cm</div>
+              <div class="readout-sub-container">
+                <div class="readout-sub-item"><span class="sub-val" id="sub-res-kohm">---</span><span class="sub-lbl">k&#937;·cm</span></div>
+                <div class="readout-sub-item"><span class="sub-val" id="sub-res-mohm">---</span><span class="sub-lbl">M&#937;·cm</span></div>
+              </div>
+            </div>
+            <div class="readout-segment sal-style">
+              <div class="readout-label">盐度 (Salinity)</div>
+              <div class="readout-value" id="readout-sal">---</div>
+              <div class="readout-unit">ppt</div>
+              <div class="readout-sub-container">
+                <div class="readout-sub-item"><span class="sub-val" id="sub-sal-mgl">---</span><span class="sub-lbl">mg/L</span></div>
+                <div class="readout-sub-item"><span class="sub-val" id="sub-sal-ppt">---</span><span class="sub-lbl">ppt</span></div>
+                <div class="readout-sub-item"><span class="sub-val" id="sub-sal-percent">---</span><span class="sub-lbl">%</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="tds-factor-wrapper">
+            <div class="factor-header"><label>TDS 换算系数 (Factor)</label><span class="static-hint" style="background:rgba(var(--color-primary-rgb),0.12);color:var(--color-primary);">ppm/(&#956;S/cm)</span></div>
+            <div class="input-with-select">
+              <input type="number" id="tds-factor-input" value="0.50" min="0.30" max="1.00" step="0.01">
+              <select id="tds-factor-preset"><option value="0.65">默认(0.65)</option><option value="0.50" selected>NaCl(0.50)</option><option value="0.67">天然水(0.67)</option><option value="0.80">高盐度(0.80)</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+          <div class="readout-status">测量点状态：<span id="readout-status-text">参考基准温度点 (T_ref)</span></div>
+        </div>
+      </div>
+      <!-- pH 面板 -->
+      <div id="panel-ph" class="factor-panel">
+        <div class="card glass">
+          <div class="card-header"><span class="icon">&#9881;</span><h2>pH 标定参数配置</h2></div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>温度补偿系数 (&#945;<sub>ph</sub>)</label><span class="static-hint" style="background:rgba(48,209,88,0.12);color:var(--color-success);">pH/°C</span></div>
+            <div class="input-with-select">
+              <input type="number" id="ph-alpha-input" value="-0.005" min="-0.1" max="0.1" step="0.001">
+              <select id="ph-alpha-preset"><option value="-0.003">-0.003</option><option value="-0.005" selected>-0.005</option><option value="-0.015">-0.015</option><option value="0.000">无温补</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>等效电势模拟 (mV<sub>sim</sub>)</label><span class="static-hint" id="ph-mv-calc-ph" style="background:rgba(48,209,88,0.12);color:var(--color-success);">7.00 pH</span></div>
+            <div class="input-with-select">
+              <input type="number" id="ph-sim-mv" value="0.0" min="-1200" max="1200" step="0.1">
+              <select id="ph-sim-mv-preset"><option value="0.0">0.0mV(pH7)</option><option value="177.5">177.5mV(pH4)</option><option value="-129.0">-129.0mV(pH9.18)</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>基准 pH 模拟 (pH<sub>ref</sub>)</label><span class="static-hint" id="ph-ref-calc-mv" style="background:rgba(48,209,88,0.12);color:var(--color-success);">0.0 mV</span></div>
+            <div class="input-with-select">
+              <input type="number" id="ph-sim-ref" value="7.00" min="-2" max="16" step="0.01">
+              <select id="ph-sim-ref-preset"><option value="7.00">7.00</option><option value="4.01">4.01</option><option value="9.18">9.18</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+          <div class="form-group highlight-input">
+            <div class="label-wrapper"><label>当前测试温度 (t<sub>test</sub>)</label><span class="static-hint" style="background:rgba(255,159,10,0.12);color:var(--color-warning);">°C</span></div>
+            <div class="input-with-select">
+              <input type="number" id="ph-test-temp-input" value="25.0" min="-10" max="150" step="0.1">
+              <select id="ph-test-temp-preset" style="border-color:rgba(255,159,10,0.25);color:var(--color-warning);"><option value="25.0">25.0°C</option><option value="0.0">0.0°C</option><option value="100.0">100.0°C</option><option value="custom">自定义</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="card glass readout-card">
+          <div class="card-header"><span class="icon">&#128202;</span><h2>实时测点数码仪</h2></div>
+          <div class="readout-grid">
+            <div class="readout-segment poh-style" style="flex:1;">
+              <div class="readout-label">氧化还原电位 (ORP)</div>
+              <div class="readout-value" id="readout-ph" style="font-size:32px;">---</div>
+              <div class="readout-unit">mV</div>
+              <div class="readout-sub-container" style="flex-direction:row;justify-content:space-around;">
+                <div class="readout-sub-item"><span class="sub-val" id="sub-ph-raw">---</span><span class="sub-lbl">等效pH</span></div>
+                <div class="readout-sub-item"><span class="sub-val" id="sub-ph-comp">---</span><span class="sub-lbl">测试温度</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="readout-status">测量点状态：<span id="ph-readout-status-text">参考基准温度点 (T_ref)</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右面板: 图表 -->
+    <section class="visualizer-panel full-height">
+      <div id="chart-ec" class="card glass chart-card full-height factor-chart active">
+        <div class="card-header justify-between">
+          <div class="flex-align-center"><span class="icon">&#128200;</span><h2 id="chart-title">电导率-温度响应曲线</h2></div>
+          <div class="flex-align-center" style="gap:16px;">
+            <div class="chart-toggle-group">
+              <button type="button" class="chart-mode-btn active" data-mode="cond">电导率K<sub>t</sub></button>
+              <button type="button" class="chart-mode-btn" data-mode="tds">TDS</button>
+              <button type="button" class="chart-mode-btn" data-mode="res">电阻率&#961;<sub>t</sub></button>
+              <button type="button" class="chart-mode-btn" data-mode="sal">盐度</button>
+            </div>
+            <div class="chart-legend-indicator" id="chart-legend">
+              <span class="dot primary"></span>实时值 <span class="dot uncomp"></span>基准值
+            </div>
+          </div>
+        </div>
+        <div class="chart-container chart-half"><canvas id="conductivityChart"></canvas></div>
+        <div class="chart-separator"><span class="chart-separator-label">&#9660; 信号-测量值曲线</span></div>
+        <div class="chart-container chart-half"><canvas id="ecSignalChart"></canvas></div>
+      </div>
+      <div id="chart-ph" class="card glass chart-card full-height factor-chart">
+        <div class="card-header justify-between">
+          <div class="flex-align-center"><span class="icon">&#129514;</span><h2 id="ph-chart-title">pH-温度响应曲线</h2></div>
+          <div class="flex-align-center" style="gap:16px;">
+            <div class="chart-toggle-group">
+              <button type="button" class="chart-mode-btn ph-chart-mode-btn active" data-mode="ph">pH</button>
+              <button type="button" class="chart-mode-btn ph-chart-mode-btn" data-mode="hconc">[H⁺]浓度</button>
+            </div>
+            <div class="chart-legend-indicator" id="ph-chart-legend">
+              <span class="dot" style="background:var(--color-success);box-shadow:0 0 6px var(--color-success);"></span>实时值 <span class="dot uncomp"></span>基准值
+            </div>
+          </div>
+        </div>
+        <div class="chart-container chart-half"><canvas id="phChart"></canvas></div>
+        <div class="chart-separator"><span class="chart-separator-label">&#9660; 信号-测量值曲线</span></div>
+        <div class="chart-container chart-half"><canvas id="phSignalChart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- 导航栏 -->
+    <nav class="card factor-nav">
+      <button type="button" class="factor-nav-btn active" data-factor="ec" title="电导率"><span class="icon">&#128166;</span><span class="label">电导率</span></button>
+      <button type="button" class="factor-nav-btn" data-factor="ph" title="酸碱度"><span class="icon">&#129514;</span><span class="label">酸碱度</span></button>
+    </nav>
+  </main>
+
+  <footer class="app-footer">
+    <p>&copy; 2026 传感器仿真标定实验室 | 极简联调版面板</p>
+  </footer>
+</div>
+
+<script>
+/* ========== Chart.js CDN 动态加载 ========== */
+(function loadChartJS() {
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js';
+  s.onload = function() { if (window._appReady) window._appReady(); };
+  s.onerror = function() { console.warn('Chart.js 加载失败，使用离线模式'); if (window._appReady) window._appReady(); };
+  document.head.appendChild(s);
+})();
+
+/* ========== 主应用逻辑 ========== */
+window._appReady = function() {
+
+/* ---- 状态机 ---- */
+var state = {
+  activeFactor: 'ec',
+  kCell: 1.0, alpha: 2.0, simResistance: 20000, simResUnit: 'ohm',
+  simConductivity: 50.00, simCondInputUnit: 'uS/cm', simMode: 'res',
+  refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
+  refCond: 50.00, condUnit: 'uS/cm',
+  tempStart: 0, tempEnd: 100, tempStep: 1, chartMode: 'cond',
+  phAlpha: -0.005, phSimMv: 0.0, phSimRef: 7.00, phSimMode: 'ref',
+  phTestTemp: 25.0, phRefTemp: 25.0, phChartMode: 'ph',
+  phTempStart: 0, phTempEnd: 100, phTempStep: 1
+};
+
+/* ---- DOM 缓存 ---- */
+var $ = function(id) { return document.getElementById(id); };
+var el = {
+  cellConstantInput: $('cell-constant'), cellConstantPresetSelect: $('cell-constant-preset'),
+  alphaInput: $('alpha-input'), alphaPresetSelect: $('alpha-preset'),
+  simResistanceInput: $('sim-resistance'), simResUnitSelect: $('sim-res-unit'),
+  simResCalcCond: $('sim-res-calc-cond'),
+  simConductivityInput: $('sim-conductivity'), simCondUnitSelect: $('sim-cond-unit'),
+  simCondCalcRes: $('sim-cond-calc-res'),
+  testTempInput: $('test-temp-input'), testTempPresetSelect: $('test-temp-preset'),
+  readoutTds: $('readout-tds'), readoutRes: $('readout-res'), readoutSal: $('readout-sal'),
+  subTdsMgl: $('sub-tds-mgl'), subTdsGl: $('sub-tds-gl'),
+  subResKohm: $('sub-res-kohm'), subResMohm: $('sub-res-mohm'),
+  subSalMgl: $('sub-sal-mgl'), subSalPpt: $('sub-sal-ppt'), subSalPercent: $('sub-sal-percent'),
+  readoutStatusText: $('readout-status-text'),
+  tdsFactorInput: $('tds-factor-input'), tdsFactorPresetSelect: $('tds-factor-preset'),
+  chartModeButtons: document.querySelectorAll('.chart-mode-btn:not(.ph-chart-mode-btn)'),
+  chartTitle: $('chart-title'), chartLegend: $('chart-legend'),
+  phAlphaInput: $('ph-alpha-input'), phAlphaPresetSelect: $('ph-alpha-preset'),
+  phSimMvInput: $('ph-sim-mv'), phSimMvPresetSelect: $('ph-sim-mv-preset'),
+  phSimRefInput: $('ph-sim-ref'), phSimRefPresetSelect: $('ph-sim-ref-preset'),
+  phTestTempInput: $('ph-test-temp-input'), phTestTempPresetSelect: $('ph-test-temp-preset'),
+  phMvCalcPh: $('ph-mv-calc-ph'), phRefCalcMv: $('ph-ref-calc-mv'),
+  readoutPh: $('readout-ph'), subPhRaw: $('sub-ph-raw'), subPhComp: $('sub-ph-comp'),
+  phReadoutStatusText: $('ph-readout-status-text'),
+  phChartModeButtons: document.querySelectorAll('.ph-chart-mode-btn'),
+  phChartTitle: $('ph-chart-title'), phChartLegend: $('ph-chart-legend'),
+  factorNavButtons: document.querySelectorAll('.factor-nav-btn'),
+  themeToggle: $('theme-toggle')
+};
+var conductivityChart = null, ecSignalChart = null, phChart = null, phSignalChart = null;
+
+/* ---- 核心算法 ---- */
+function tempCompK(a, t) { return 1 + (a/100)*(t-25); }
+function calcKt(kUncomp, a, t) { return Math.max(0, kUncomp / tempCompK(a, t)); }
+
+function calcSalinity(condUs) {
+  var table = [
+    {c:0,s:0},{c:10,s:0.014131},{c:20,s:0.017738},{c:30,s:0.021651},{c:40,s:0.025728},{c:50,s:0.029914},
+    {c:100,s:0.051755},{c:200,s:0.097629},{c:300,s:0.144978},{c:400,s:0.193247},{c:500,s:0.242199},
+    {c:1000,s:0.493846},{c:2000,s:1.018297},{c:3000,s:1.560929},{c:4000,s:2.116823},{c:5000,s:2.683439},
+    {c:10000,s:5.634777},{c:20000,s:11.932424},{c:30000,s:18.597353},{c:40000,s:25.556883},{c:50000,s:32.782382},
+    {c:100000,s:72.766687},{c:200000,s:175.345513},{c:300000,s:317.728005},{c:400000,s:511.447377},{c:500000,s:767.135745}
+  ];
+  if (condUs<=0) return 0;
+  if (condUs>=table[table.length-1].c) { var p1=table[table.length-2],p2=table[table.length-1]; return p2.s+(condUs-p2.c)*((p2.s-p1.s)/(p2.c-p1.c)); }
+  for (var i=0;i<table.length-1;i++){var p1=table[i],p2=table[i+1];if(condUs>=p1.c&&condUs<=p2.c) return p1.s+(condUs-p1.c)/(p2.c-p1.c)*(p2.s-p1.s);}
+  return 0;
+}
+
+/* ---- EC 计算 ---- */
+function updateRefCond() {
+  if (state.simMode==='res') {
+    var rOhm = state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
+    state.refCond = rOhm>0.001 ? (state.kCell/rOhm)*1000000 : 0;
+    if (el.simConductivityInput && document.activeElement!==el.simConductivityInput) {
+      var dc = state.simCondInputUnit==='mS/cm'?state.refCond/1000:state.refCond;
+      el.simConductivityInput.value = dc.toFixed(2);
+      state.simConductivity = dc;
+    }
+  } else {
+    var kUs = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
+    state.refCond = kUs;
+    var rO = kUs>0.001?(state.kCell/kUs)*1000000:99999999;
+    if (el.simResistanceInput && document.activeElement!==el.simResistanceInput) {
+      var dr = state.simResUnit==='kohm'?rO/1000:rO;
+      el.simResistanceInput.value = dr>=100?dr.toFixed(1):dr.toFixed(2);
+      state.simResistance = dr;
+    }
+  }
+  if (el.simResCalcCond) el.simResCalcCond.textContent = state.refCond.toFixed(2)+' '+state.condUnit;
+  if (el.simCondCalcRes) {
+    var r = state.refCond>0.001?(state.kCell/state.refCond)*1000000:99999999;
+    el.simCondCalcRes.textContent = r>=9999999?'>1 MΩ':(r>=1000?(r/1000).toFixed(3)+' kΩ':r.toFixed(1)+' Ω');
+  }
+}
+
+function genECData() {
+  var pts=[],data=[];
+  for(var t=state.tempStart;t<=state.tempEnd;t+=state.tempStep) pts.push(parseFloat(t.toFixed(2)));
+  if(state.refTemp>=state.tempStart&&state.refTemp<=state.tempEnd&&!pts.includes(state.refTemp)) pts.push(state.refTemp);
+  if(state.testTemp>=state.tempStart&&state.testTemp<=state.tempEnd&&!pts.includes(state.testTemp)) pts.push(state.testTemp);
+  pts=[...new Set(pts)]; pts.sort(function(a,b){return a-b;});
+  pts.forEach(function(t){
+    var kt=calcKt(state.refCond,state.alpha,t);
+    data.push({temp:t,cond:parseFloat(kt.toFixed(4)),tds:parseFloat((kt*state.tdsFactor).toFixed(2)),res:parseFloat((kt>0.0001?1/kt:100).toFixed(4)),sal:parseFloat(calcSalinity(kt).toFixed(5)),signal:parseFloat((kt>0.001?(state.kCell/kt)*1000000:99999999).toFixed(2))});
+  });
+  return data;
+}
+
+function updateECReadout() {
+  var kt=calcKt(state.refCond,state.alpha,state.testTemp);
+  var tds=kt*state.tdsFactor;
+  el.readoutTds.textContent=tds.toFixed(1);
+  if(el.subTdsMgl) el.subTdsMgl.textContent=tds.toFixed(1);
+  if(el.subTdsGl) el.subTdsGl.textContent=(tds/1000).toFixed(3);
+  var resD='开路',resU='>100 MΩ·cm',resK='开路',resM='开路';
+  if(kt>0.0001){
+    resM=(1/kt).toFixed(3);resK=((1/kt)*1000).toFixed(1);
+    if(1/kt>=1){resD=(1/kt).toFixed(3);resU='MΩ·cm';}
+    else if(1/kt>=0.001){resD=((1/kt)*1000).toFixed(1);resU='kΩ·cm';}
+    else{resD=((1/kt)*1000000).toFixed(0);resU='Ω·cm';}
+  }
+  el.readoutRes.textContent=resD;
+  document.querySelector('.res-style .readout-unit').textContent=resU;
+  if(el.subResKohm) el.subResKohm.textContent=resK;
+  if(el.subResMohm) el.subResMohm.textContent=resM;
+  var sal=calcSalinity(kt);
+  el.readoutSal.textContent=sal.toFixed(4);
+  if(el.subSalMgl) el.subSalMgl.textContent=(sal*1000).toFixed(1);
+  if(el.subSalPpt) el.subSalPpt.textContent=sal.toFixed(4);
+  if(el.subSalPercent) el.subSalPercent.textContent=(sal/10).toFixed(5);
+  var st='正常',sc='var(--text-secondary)';
+  if(state.testTemp===state.refTemp){st='参考基准温度点(T_ref)';sc='var(--color-success)';}
+  else if(state.testTemp<0){st='结冰区域/超低温';sc='var(--color-danger)';}
+  else if(state.testTemp>80){st='超高温预警区';sc='var(--color-warning)';}
+  else{st='常温标定联调区';sc='var(--color-primary)';}
+  el.readoutStatusText.textContent=st;el.readoutStatusText.style.color=sc;
+}
+
+/* ---- pH 计算 ---- */
+function updateRefPh() {
+  var slope=0.198416*(state.phTestTemp+273.15);
+  if(state.phSimMode==='ref'){
+    var pHt=state.phSimRef+state.phAlpha*(state.phTestTemp-25);
+    var mV=(7-pHt)*slope; state.phSimMv=mV;
+    if(el.phSimMvInput&&document.activeElement!==el.phSimMvInput) el.phSimMvInput.value=mV.toFixed(1);
+  } else {
+    var pHt2=7-(state.phSimMv/slope);
+    var pHr=pHt2-state.phAlpha*(state.phTestTemp-25);
+    state.phSimRef=Math.max(-2,Math.min(16,pHr));
+    if(el.phSimRefInput&&document.activeElement!==el.phSimRefInput) el.phSimRefInput.value=state.phSimRef.toFixed(2);
+  }
+  var apHt=state.phSimRef+state.phAlpha*(state.phTestTemp-25);
+  var amV=(7-apHt)*slope;
+  if(el.phMvCalcPh) el.phMvCalcPh.textContent=Math.max(-2,Math.min(16,apHt)).toFixed(2)+' pH';
+  if(el.phRefCalcMv) el.phRefCalcMv.textContent=amV.toFixed(1)+' mV';
+}
+
+function genPHData() {
+  var pts=[],data=[];
+  for(var t=state.phTempStart;t<=state.phTempEnd;t+=state.phTempStep) pts.push(parseFloat(t.toFixed(2)));
+  if(state.phRefTemp>=state.phTempStart&&state.phRefTemp<=state.phTempEnd&&!pts.includes(state.phRefTemp)) pts.push(state.phRefTemp);
+  if(state.phTestTemp>=state.phTempStart&&state.phTestTemp<=state.phTempEnd&&!pts.includes(state.phTestTemp)) pts.push(state.phTestTemp);
+  pts=[...new Set(pts)];pts.sort(function(a,b){return a-b;});
+  pts.forEach(function(t){
+    var pH=Math.max(-2,Math.min(16,state.phSimRef+state.phAlpha*(t-25)));
+    var hc=Math.pow(10,-pH);
+    var sl=0.198416*(t+273.15);
+    data.push({temp:t,ph:parseFloat(pH.toFixed(3)),hconc:hc,mV:parseFloat(((7-pH)*sl).toFixed(1))});
+  });
+  return data;
+}
+
+function updatePHReadout() {
+  var pH=Math.max(-2,Math.min(16,state.phSimRef+state.phAlpha*(state.phTestTemp-25)));
+  var mV=(7-pH)*0.198416*(state.phTestTemp+273.15);
+  el.readoutPh.textContent=mV.toFixed(1);
+  if(el.subPhRaw) el.subPhRaw.textContent=pH.toFixed(2);
+  if(el.subPhComp) el.subPhComp.textContent=state.phTestTemp.toFixed(1)+' °C';
+  var st='正常',sc='var(--text-secondary)';
+  if(state.phTestTemp===state.phRefTemp){st='参考基准温度点(T_ref)';sc='var(--color-success)';}
+  else if(state.phTestTemp<0){st='冰点以下';sc='var(--color-danger)';}
+  else if(state.phTestTemp>100){st='超沸点预警';sc='var(--color-warning)';}
+  else{st='常温标定联调区';sc='var(--color-primary)';}
+  el.phReadoutStatusText.textContent=st;el.phReadoutStatusText.style.color=sc;
+}
+
+/* ---- 图表绘制 ---- */
+function buildChart(ctx, labels, dataVals, refVals, color, chartMode, isEC, optIdx) {
+  var lt=document.body.classList.contains('light-theme');
+  var tc=lt?'#333':'#e0e0e0',gc=lt?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.06)';
+  var grad=ctx.createLinearGradient(0,0,0,350);
+  grad.addColorStop(0,color.replace('1)',lt?'0.12)':'0.15)'));
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+
+  var pr=[],phr=[],pbg=[],pbc=[],pbw=[];
+  var testIdx = (optIdx && optIdx.testIdx !== undefined) ? optIdx.testIdx : -1;
+  var refIdx  = (optIdx && optIdx.refIdx !== undefined)  ? optIdx.refIdx  : -1;
+  if (testIdx < 0) {
+    var testT=isEC?state.testTemp:state.phTestTemp;
+    var refT=isEC?state.refTemp:state.phRefTemp;
+    labels.forEach(function(t,i){
+      if(t===testT){testIdx=i;}else if(!refIdx||(refIdx<0&&t===refT)){refIdx=i;}
+    });
+    if(refIdx<0) refIdx=-1;
+  }
+  labels.forEach(function(t,i){
+    if(i===testIdx){pr.push(8);phr.push(11);pbg.push('#ff9f0a');pbc.push('#fff');pbw.push(3);}
+    else if(i===refIdx){pr.push(6);phr.push(8);pbg.push(color.replace(/[\d.]+\)/,'1)'));pbc.push('#fff');pbw.push(2);}
+    else{pr.push(0);phr.push(4);pbg.push(color);pbc.push(color);pbw.push(0);}
+  });
+
+  var datasets=[{
+    label:'实时',data:dataVals,
+    borderColor:color.replace(/[\d.]+\)/,'1)'),borderWidth:3,
+    pointBackgroundColor:pbg,pointBorderColor:pbc,pointBorderWidth:pbw,
+    pointRadius:pr,pointHoverRadius:phr,
+    pointHoverBackgroundColor:color.replace(/[\d.]+\)/,'1)'),
+    pointHoverBorderColor:'#fff',pointHoverBorderWidth:3,
+    fill:true,backgroundColor:grad,tension:0.2
+  }];
+  if(refVals){
+    datasets.push({
+      label:'基准',data:refVals,
+      borderColor:lt?'#999':'#666',borderWidth:1.2,borderDash:[6,6],pointRadius:0,fill:false
+    });
+  }
+  return new Chart(ctx,{type:'line',data:{labels:labels,datasets:datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{
+          backgroundColor:lt?'rgba(255,255,255,0.95)':'rgba(15,23,42,0.95)',
+          titleColor:lt?'#1a1a1a':'#fff',bodyColor:lt?'#4a4a4a':'#cbd5e1',
+          borderColor:color.replace(/[\d.]+\)/,'1)'),borderWidth:1,
+          padding:12,cornerRadius:8,
+          titleFont:{family:'Inter',size:13,weight:'bold'},
+          bodyFont:{family:'Inter',size:13}
+        }
+      },
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:'温度(°C)',color:tc,font:{size:12,weight:600}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:'',color:tc,font:{size:12,weight:600}}}
+      },
+      interaction:{mode:'index',intersect:false}
+    }
+  });
+}
+
+function updateECChart(data) {
+  if(typeof Chart==='undefined') return;
+  if(conductivityChart) conductivityChart.destroy();
+  var labels=data.map(function(d){return d.temp;});
+  var vals,refV,color,legTxt,titleTxt;
+  if(state.chartMode==='cond'){
+    vals=data.map(function(d){return d.cond;});refV=data.map(function(){return parseFloat(state.refCond.toFixed(4));});
+    color='rgba(50,230,150,1)';legTxt='实时电导率';titleTxt='电导率-温度响应曲线';
+    el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
+  }else if(state.chartMode==='tds'){
+    vals=data.map(function(d){return d.tds;});refV=data.map(function(){return parseFloat((state.refCond*state.tdsFactor).toFixed(2));});
+    color='rgba(0,230,230,1)';legTxt='实时TDS';titleTxt='TDS-温度响应曲线';
+    el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
+  }else if(state.chartMode==='res'){
+    vals=data.map(function(d){return d.res;});var refRes=state.refCond>0.001?1/state.refCond:100;refV=data.map(function(){return parseFloat(refRes.toFixed(4));});
+    color='rgba(191,90,242,1)';legTxt='实时电阻率';titleTxt='电阻率-温度响应曲线';
+    el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
+  }else{
+    vals=data.map(function(d){return d.sal;});refV=data.map(function(){return parseFloat(calcSalinity(state.refCond).toFixed(5));});
+    color='rgba(255,159,10,1)';legTxt='实时盐度';titleTxt='盐度-温度响应曲线';
+    el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
+  }
+  var ctx=document.getElementById('conductivityChart').getContext('2d');
+  conductivityChart=buildChart(ctx,labels,vals,refV,color,state.chartMode,true);
+}
+
+function updateECSignalChart(data) {
+  if(typeof Chart==='undefined') return;
+  if(ecSignalChart) ecSignalChart.destroy();
+  var labels=data.map(function(d){return d.signal.toFixed(2);});
+  var vals,color;
+  if(state.chartMode==='cond'){vals=data.map(function(d){return d.cond;});color='rgba(50,230,150,1)';}
+  else if(state.chartMode==='tds'){vals=data.map(function(d){return d.tds;});color='rgba(0,230,230,1)';}
+  else if(state.chartMode==='res'){vals=data.map(function(d){return d.res;});color='rgba(191,90,242,1)';}
+  else{vals=data.map(function(d){return d.sal;});color='rgba(255,159,10,1)';}
+  var testIdx=-1,refIdx=-1;
+  data.forEach(function(d,i){if(d.temp===state.testTemp)testIdx=i;if(d.temp===state.refTemp)refIdx=i;});
+  var ctx=document.getElementById('ecSignalChart').getContext('2d');
+  ecSignalChart=buildChart(ctx,labels,vals,null,color,state.chartMode,true,{testIdx:testIdx,refIdx:refIdx});
+}
+
+function updatePHChart(data) {
+  if(typeof Chart==='undefined') return;
+  if(phChart) phChart.destroy();
+  var labels=data.map(function(d){return d.temp;});
+  var vals,refV,color,legTxt,titleTxt;
+  if(state.phChartMode==='ph'){
+    vals=data.map(function(d){return d.ph;});refV=data.map(function(){return parseFloat(state.phSimRef.toFixed(3));});
+    color='rgba(48,209,88,1)';legTxt='实时pH';titleTxt='pH-温度响应曲线';
+    el.phChartTitle.textContent=titleTxt;el.phChartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
+  }else{
+    vals=data.map(function(d){return d.hconc;});refV=data.map(function(){return Math.pow(10,-state.phSimRef);});
+    color='rgba(191,90,242,1)';legTxt='实时[H⁺]';titleTxt='H⁺浓度-温度响应曲线';
+    el.phChartTitle.textContent=titleTxt;el.phChartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
+  }
+  var ctx=document.getElementById('phChart').getContext('2d');
+  phChart=buildChart(ctx,labels,vals,refV,color,state.phChartMode,false);
+}
+
+function updatePHSignalChart(data) {
+  if(typeof Chart==='undefined') return;
+  if(phSignalChart) phSignalChart.destroy();
+  var labels=data.map(function(d){return d.mV.toFixed(1);});
+  var vals,color;
+  if(state.phChartMode==='ph'){vals=data.map(function(d){return d.ph;});color='rgba(48,209,88,1)';}
+  else{vals=data.map(function(d){return d.hconc;});color='rgba(191,90,242,1)';}
+  var testIdx=-1,refIdx=-1;
+  data.forEach(function(d,i){if(d.temp===state.phTestTemp)testIdx=i;if(d.temp===state.phRefTemp)refIdx=i;});
+  var ctx=document.getElementById('phSignalChart').getContext('2d');
+  phSignalChart=buildChart(ctx,labels,vals,null,color,state.phChartMode,false,{testIdx:testIdx,refIdx:refIdx});
+}
+
+/* ---- 统一更新 ---- */
+function globalUpdate() {
+  if(state.activeFactor==='ec'){
+    updateRefCond();
+    var d=genECData();
+    if(typeof Chart!=='undefined'){
+      updateECChart(d);
+      updateECSignalChart(d);
+    }
+    updateECReadout();
+  } else {
+    updateRefPh();
+    var d=genPHData();
+    if(typeof Chart!=='undefined'){
+      updatePHChart(d);
+      updatePHSignalChart(d);
+    }
+    updatePHReadout();
+  }
+}
+
+/* ---- 因子切换 ---- */
+function switchFactor(id) {
+  state.activeFactor=id;
+  el.factorNavButtons.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-factor')===id);});
+  document.querySelectorAll('.factor-panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+id);});
+  document.querySelectorAll('.factor-chart').forEach(function(c){c.classList.toggle('active',c.id==='chart-'+id);});
+  globalUpdate();
+}
+
+/* ---- 事件绑定 ---- */
+function bindPreset(inp,sel,prop,prec) {
+  if(!inp||!sel) return;
+  sel.addEventListener('change',function(e){
+    var v=e.target.value;
+    if(v!=='custom'){var n=parseFloat(v);inp.value=n.toFixed(prec);state[prop]=n;globalUpdate();}
+  });
+  inp.addEventListener('input',function(e){
+    var n=parseFloat(e.target.value);if(isNaN(n)) return;state[prop]=n;
+    var f=false;
+    for(var i=0;i<sel.options.length;i++){var ov=sel.options[i].value;if(ov!=='custom'&&Math.abs(parseFloat(ov)-n)<1e-4){sel.value=ov;f=true;break;}}
+    if(!f) sel.value='custom';
+    globalUpdate();
+  });
+}
+bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3);
+bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2);
+bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1);
+bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
+bindPreset(el.phAlphaInput,el.phAlphaPresetSelect,'phAlpha',3);
+bindPreset(el.phSimRefInput,el.phSimRefPresetSelect,'phSimRef',2);
+bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
+
+el.simResistanceInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<=0.001)return;state.simMode='res';state.simResistance=v;globalUpdate();});
+el.simResUnitSelect.addEventListener('change',function(e){state.simMode='res';state.simResUnit=e.target.value;globalUpdate();});
+el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;globalUpdate();});
+el.simCondUnitSelect.addEventListener('change',function(e){state.simMode='cond';state.simCondInputUnit=e.target.value;globalUpdate();});
+el.phSimMvInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v))return;state.phSimMode='mv';state.phSimMv=v;globalUpdate();});
+el.phSimMvPresetSelect.addEventListener('change',function(e){var v=e.target.value;if(v!=='custom'){var n=parseFloat(v);el.phSimMvInput.value=n.toFixed(1);state.phSimMode='mv';state.phSimMv=n;globalUpdate();}});
+el.phSimRefInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<-2||v>16)return;state.phSimMode='ref';state.phSimRef=v;globalUpdate();});
+
+el.chartModeButtons.forEach(function(btn){
+  btn.addEventListener('click',function(e){
+    el.chartModeButtons.forEach(function(b){b.classList.remove('active');});
+    e.currentTarget.classList.add('active');
+    state.chartMode=e.currentTarget.getAttribute('data-mode');
+    globalUpdate();
+  });
+});
+el.phChartModeButtons.forEach(function(btn){
+  btn.addEventListener('click',function(e){
+    el.phChartModeButtons.forEach(function(b){b.classList.remove('active');});
+    e.currentTarget.classList.add('active');
+    state.phChartMode=e.currentTarget.getAttribute('data-mode');
+    globalUpdate();
+  });
+});
+el.factorNavButtons.forEach(function(btn){
+  btn.addEventListener('click',function(e){switchFactor(e.currentTarget.getAttribute('data-factor'));});
+});
+el.themeToggle.addEventListener('click',function(){
+  var b=document.body;
+  if(b.classList.contains('dark-theme')){
+    b.classList.remove('dark-theme');b.classList.add('light-theme');
+    el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  } else {
+    b.classList.remove('light-theme');b.classList.add('dark-theme');
+    el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  }
+  globalUpdate();
+});
+
+/* ---- 初始化 ---- */
+globalUpdate();
+
+}; /* end _appReady */
+</script>
+</body>
+</html>
