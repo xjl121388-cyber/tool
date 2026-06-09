@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -260,6 +260,19 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   .chart-container{height:300px}
   .factor-nav{flex-direction:row;width:100%;height:auto;order:-1;justify-content:center;gap:20px;padding:10px!important}
 }
+
+/* ========== 响应式适配 ========== */
+@media (max-width: 1100px) {
+  .dashboard-grid { grid-template-columns: 340px 1fr 64px; gap: 8px; }
+  .app-container { padding: 8px; }
+}
+@media (max-width: 860px) {
+  .dashboard-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .factor-nav { flex-direction: row; gap: 6px; }
+  .factor-btn { width: auto; height: 32px; }
+  .app-header { padding: 8px 12px; height: 52px; }
+  .logo-text h1 { font-size: 14px; }
+}
 </style>
 </head>
 <body class="light-theme">
@@ -478,6 +491,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
 </div>
 
 <script>
+'use strict';
 /* ========== Chart.js CDN 动态加载 ========== */
 (function loadChartJS() {
   var s = document.createElement('script');
@@ -534,6 +548,7 @@ var el = {
   themeToggle: $('theme-toggle')
 };
 var conductivityChart = null, ecSignalChart = null, phChart = null, phSignalChart = null;
+var lastECData = null, lastPHData = null;
 
 /* ---- 核心算法 ---- */
 function tempCompK(a, t) { return 1 + (a/100)*(t-25); }
@@ -590,7 +605,7 @@ function genECData() {
     var kt=calcKt(state.refCond,state.alpha,t);
     data.push({temp:t,cond:parseFloat(kt.toFixed(4)),tds:parseFloat((kt*state.tdsFactor).toFixed(2)),res:parseFloat((kt>0.0001?1/kt:100).toFixed(4)),sal:parseFloat(calcSalinity(kt).toFixed(5)),signal:parseFloat((kt>0.001?(state.kCell/kt)*1000000:99999999).toFixed(2))});
   });
-  return data;
+  lastECData = data; return data;
 }
 
 function updateECReadout() {
@@ -654,7 +669,7 @@ function genPHData() {
     var sl=0.198416*(t+273.15);
     data.push({temp:t,ph:parseFloat(pH.toFixed(3)),hconc:hc,mV:parseFloat(((7-pH)*sl).toFixed(1))});
   });
-  return data;
+  lastPHData = data; return data;
 }
 
 function updatePHReadout() {
@@ -672,7 +687,9 @@ function updatePHReadout() {
 }
 
 /* ---- 图表绘制 ---- */
-function buildChart(ctx, labels, dataVals, refVals, color, chartMode, isEC, optIdx) {
+function buildChart(ctx, labels, dataVals, refVals, color, isEC, optIdx) {
+  var xTitle = (optIdx && optIdx.xTitle) ? optIdx.xTitle : '温度(°C)';
+  var yTitle = (optIdx && optIdx.yTitle) ? optIdx.yTitle : '';
   var lt=document.body.classList.contains('light-theme');
   var tc=lt?'#333':'#e0e0e0',gc=lt?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.06)';
   var grad=ctx.createLinearGradient(0,0,0,350);
@@ -725,12 +742,24 @@ function buildChart(ctx, labels, dataVals, refVals, color, chartMode, isEC, optI
         }
       },
       scales:{
-        x:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:'温度(°C)',color:tc,font:{size:12,weight:600}}},
-        y:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:'',color:tc,font:{size:12,weight:600}}}
+        x:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:xTitle,color:tc,font:{size:12,weight:600}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:yTitle,color:tc,font:{size:12,weight:600}}}
       },
       interaction:{mode:'index',intersect:false}
     }
   });
+}
+
+/* ---- 模式配置辅助 ---- */
+function getECModeConfig(d) {
+  if(state.chartMode==='cond') return {yUnit:'μS/cm',val:d.cond,color:'rgba(50,230,150,1)'};
+  if(state.chartMode==='tds') return {yUnit:'mg/L',val:d.tds,color:'rgba(0,230,230,1)'};
+  if(state.chartMode==='res') return {yUnit:'MΩ·cm',val:d.res,color:'rgba(191,90,242,1)'};
+  return {yUnit:'ppt',val:d.sal,color:'rgba(255,159,10,1)'};
+}
+function getPHModeConfig(d) {
+  if(state.phChartMode==='ph') return {yUnit:'pH',val:d.ph,color:'rgba(48,209,88,1)'};
+  return {yUnit:'mol/L',val:d.hconc,color:'rgba(191,90,242,1)'};
 }
 
 function updateECChart(data) {
@@ -738,40 +767,37 @@ function updateECChart(data) {
   if(conductivityChart) conductivityChart.destroy();
   var labels=data.map(function(d){return d.temp;});
   var vals,refV,color,legTxt,titleTxt;
-  if(state.chartMode==='cond'){
+  if(state.chartMode==='cond'){var yUnit='μS/cm';
     vals=data.map(function(d){return d.cond;});refV=data.map(function(){return parseFloat(state.refCond.toFixed(4));});
     color='rgba(50,230,150,1)';legTxt='实时电导率';titleTxt='电导率-温度响应曲线';
     el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
-  }else if(state.chartMode==='tds'){
+  }else if(state.chartMode==='tds'){var yUnit='mg/L';
     vals=data.map(function(d){return d.tds;});refV=data.map(function(){return parseFloat((state.refCond*state.tdsFactor).toFixed(2));});
     color='rgba(0,230,230,1)';legTxt='实时TDS';titleTxt='TDS-温度响应曲线';
     el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
-  }else if(state.chartMode==='res'){
+  }else if(state.chartMode==='res'){var yUnit='MΩ·cm';
     vals=data.map(function(d){return d.res;});var refRes=state.refCond>0.001?1/state.refCond:100;refV=data.map(function(){return parseFloat(refRes.toFixed(4));});
     color='rgba(191,90,242,1)';legTxt='实时电阻率';titleTxt='电阻率-温度响应曲线';
     el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
-  }else{
+  }else{var yUnit='ppt';
     vals=data.map(function(d){return d.sal;});refV=data.map(function(){return parseFloat(calcSalinity(state.refCond).toFixed(5));});
     color='rgba(255,159,10,1)';legTxt='实时盐度';titleTxt='盐度-温度响应曲线';
     el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
   }
   var ctx=document.getElementById('conductivityChart').getContext('2d');
-  conductivityChart=buildChart(ctx,labels,vals,refV,color,state.chartMode,true);
+  conductivityChart=buildChart(ctx,labels,vals,refV,color,true,{yTitle:yUnit});
 }
 
 function updateECSignalChart(data) {
   if(typeof Chart==='undefined') return;
   if(ecSignalChart) ecSignalChart.destroy();
   var labels=data.map(function(d){return d.signal.toFixed(2);});
-  var vals,color;
-  if(state.chartMode==='cond'){vals=data.map(function(d){return d.cond;});color='rgba(50,230,150,1)';}
-  else if(state.chartMode==='tds'){vals=data.map(function(d){return d.tds;});color='rgba(0,230,230,1)';}
-  else if(state.chartMode==='res'){vals=data.map(function(d){return d.res;});color='rgba(191,90,242,1)';}
-  else{vals=data.map(function(d){return d.sal;});color='rgba(255,159,10,1)';}
+  var cfg=getECModeConfig(data[0]); var yUnit=cfg.yUnit; var color=cfg.color;
+  var vals=data.map(function(d){return getECModeConfig(d).val;});
   var testIdx=-1,refIdx=-1;
   data.forEach(function(d,i){if(d.temp===state.testTemp)testIdx=i;if(d.temp===state.refTemp)refIdx=i;});
   var ctx=document.getElementById('ecSignalChart').getContext('2d');
-  ecSignalChart=buildChart(ctx,labels,vals,null,color,state.chartMode,true,{testIdx:testIdx,refIdx:refIdx});
+  ecSignalChart=buildChart(ctx,labels,vals,null,color,true,{testIdx:testIdx,refIdx:refIdx,xTitle:'信号值 (kΩ)',yTitle:yUnit});
 }
 
 function updatePHChart(data) {
@@ -779,33 +805,47 @@ function updatePHChart(data) {
   if(phChart) phChart.destroy();
   var labels=data.map(function(d){return d.temp;});
   var vals,refV,color,legTxt,titleTxt;
-  if(state.phChartMode==='ph'){
+  if(state.phChartMode==='ph'){var yUnit='pH';
     vals=data.map(function(d){return d.ph;});refV=data.map(function(){return parseFloat(state.phSimRef.toFixed(3));});
     color='rgba(48,209,88,1)';legTxt='实时pH';titleTxt='pH-温度响应曲线';
     el.phChartTitle.textContent=titleTxt;el.phChartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
-  }else{
+  }else{var yUnit='mol/L';
     vals=data.map(function(d){return d.hconc;});refV=data.map(function(){return Math.pow(10,-state.phSimRef);});
     color='rgba(191,90,242,1)';legTxt='实时[H⁺]';titleTxt='H⁺浓度-温度响应曲线';
     el.phChartTitle.textContent=titleTxt;el.phChartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
   }
   var ctx=document.getElementById('phChart').getContext('2d');
-  phChart=buildChart(ctx,labels,vals,refV,color,state.phChartMode,false);
+  phChart=buildChart(ctx,labels,vals,refV,color,false,{yTitle:yUnit});
 }
 
 function updatePHSignalChart(data) {
   if(typeof Chart==='undefined') return;
   if(phSignalChart) phSignalChart.destroy();
   var labels=data.map(function(d){return d.mV.toFixed(1);});
-  var vals,color;
-  if(state.phChartMode==='ph'){vals=data.map(function(d){return d.ph;});color='rgba(48,209,88,1)';}
-  else{vals=data.map(function(d){return d.hconc;});color='rgba(191,90,242,1)';}
+  var cfg=getPHModeConfig(data[0]); var yUnit=cfg.yUnit; var color=cfg.color;
+  var vals=data.map(function(d){return getPHModeConfig(d).val;});
   var testIdx=-1,refIdx=-1;
   data.forEach(function(d,i){if(d.temp===state.phTestTemp)testIdx=i;if(d.temp===state.phRefTemp)refIdx=i;});
   var ctx=document.getElementById('phSignalChart').getContext('2d');
-  phSignalChart=buildChart(ctx,labels,vals,null,color,state.phChartMode,false,{testIdx:testIdx,refIdx:refIdx});
+  phSignalChart=buildChart(ctx,labels,vals,null,color,false,{testIdx:testIdx,refIdx:refIdx,xTitle:'信号值 (mV)',yTitle:yUnit});
 }
 
 /* ---- 统一更新 ---- */
+function redrawChartsOnly() {
+  if(typeof Chart==='undefined') return;
+  if(state.activeFactor==='ec'&&lastECData){
+    if(conductivityChart) conductivityChart.destroy();
+    if(ecSignalChart) ecSignalChart.destroy();
+    updateECChart(lastECData);
+    updateECSignalChart(lastECData);
+  } else if(state.activeFactor==='ph'&&lastPHData){
+    if(phChart) phChart.destroy();
+    if(phSignalChart) phSignalChart.destroy();
+    updatePHChart(lastPHData);
+    updatePHSignalChart(lastPHData);
+  }
+}
+
 function globalUpdate() {
   if(state.activeFactor==='ec'){
     updateRefCond();
@@ -894,7 +934,7 @@ el.themeToggle.addEventListener('click',function(){
     b.classList.remove('light-theme');b.classList.add('dark-theme');
     el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
   }
-  globalUpdate();
+  redrawChartsOnly();
 });
 
 /* ---- 初始化 ---- */
