@@ -343,6 +343,96 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   border-color: var(--color-success); background: rgba(48,209,88,0.12);
   color: var(--color-success); box-shadow: 0 0 15px rgba(48,209,88,0.25);
 }
+
+/* ========== Cookie 同步弹窗 ========== */
+.cookie-banner-container {
+  position: fixed;
+  bottom: -200px;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-glass);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(20px);
+  z-index: 9999;
+  padding: 16px 24px;
+  transition: bottom 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cookie-banner-container.show {
+  bottom: 0;
+}
+.cookie-banner-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.cookie-text-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+.cookie-icon {
+  font-size: 28px;
+  animation: cookie-bounce 3s infinite ease-in-out;
+  display: inline-block;
+}
+@keyframes cookie-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(8deg); }
+}
+.cookie-text h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-outfit);
+  margin-bottom: 4px;
+}
+.cookie-text p {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.cookie-btn-area {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.cookie-btn {
+  height: 36px;
+  padding: 0 18px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-family: var(--font-sans);
+  outline: none;
+}
+.cookie-btn.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+.cookie-btn.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(var(--color-primary-rgb), 0.45);
+}
+.cookie-btn.btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-glass);
+}
+.cookie-btn.btn-secondary:hover {
+  background: var(--border-glass);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
 @media(max-width:900px){
   body{overflow-y:auto}
   .app-container{height:auto}
@@ -351,6 +441,8 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   .chart-container{height:300px}
   .factor-nav{flex-direction:row;width:100%;height:auto;order:-1;justify-content:center;gap:20px;padding:10px!important}
   .formula-container { flex-direction: column; height: auto; }
+  .cookie-banner-content { flex-direction: column; align-items: stretch; gap: 16px; }
+  .cookie-btn-area { justify-content: flex-end; }
 }
 
 /* ========== 响应式适配 ========== */
@@ -734,6 +826,23 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   <footer class="app-footer">
     <p>&copy; 2026 传感器仿真标定实验室 | 极简联调版面板</p>
   </footer>
+</div>
+
+<!-- Cookie 偏好授权弹窗 -->
+<div id="cookie-banner" class="cookie-banner-container">
+  <div class="cookie-banner-content">
+    <div class="cookie-text-area">
+      <span class="cookie-icon">🍪</span>
+      <div class="cookie-text">
+        <h3>个性化偏好与本地数据存储</h3>
+        <p>我们使用浏览器本地存储（LocalStorage）技术来自动记录您调试的传感器参数、界面主题及视窗模式，以提供连续的调校体验。继续使用本网站即表示您同意我们的数据存储方式。</p>
+      </div>
+    </div>
+    <div class="cookie-btn-area">
+      <button type="button" id="btn-cookie-decline" class="cookie-btn btn-secondary">拒绝</button>
+      <button type="button" id="btn-cookie-accept" class="cookie-btn btn-primary">接受全部</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1423,6 +1532,45 @@ if (initTheme === 'dark') {
   el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 }
 switchFactor(state.activeFactor, state.viewMode);
+
+function initCookieConsent() {
+  var choice = null;
+  try {
+    choice = localStorage.getItem('cookie_consent_choice');
+  } catch (e) {}
+  
+  if (!choice) {
+    var banner = $('cookie-banner');
+    if (banner) {
+      setTimeout(function() {
+        banner.classList.add('show');
+      }, 800);
+    }
+  }
+
+  var btnAccept = $('btn-cookie-accept');
+  var btnDecline = $('btn-cookie-decline');
+  var banner = $('cookie-banner');
+
+  if (btnAccept && banner) {
+    btnAccept.addEventListener('click', function() {
+      try {
+        localStorage.setItem('cookie_consent_choice', 'accepted');
+      } catch (e) {}
+      banner.classList.remove('show');
+    });
+  }
+
+  if (btnDecline && banner) {
+    btnDecline.addEventListener('click', function() {
+      try {
+        localStorage.setItem('cookie_consent_choice', 'declined');
+      } catch (e) {}
+      banner.classList.remove('show');
+    });
+  }
+}
+initCookieConsent();
 
 }; /* end _appReady */
 </script>
