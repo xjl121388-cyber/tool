@@ -741,7 +741,7 @@ window._appReady = function() {
 
 /* ---- 状态机 ---- */
 var state = {
-  activeFactor: 'ec', viewMode: 'sim',
+  activeFactor: 'ec', viewMode: 'sim', theme: 'light',
   kCell: 1.0, alpha: 2.0, simResistance: 20000, simResUnit: 'ohm',
   simConductivity: 50.00, simCondInputUnit: 'uS/cm', simMode: 'res',
   refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
@@ -1163,6 +1163,71 @@ function updateFormulaCalcs() {
   }
 }
 
+function saveState() {
+  try {
+    state.theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+    localStorage.setItem('sensor_calib_state', JSON.stringify(state));
+  } catch (e) {
+    console.warn('保存本地存储失败', e);
+  }
+}
+
+function loadSavedState() {
+  try {
+    var saved = localStorage.getItem('sensor_calib_state');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      for (var k in parsed) {
+        if (parsed.hasOwnProperty(k) && state.hasOwnProperty(k)) {
+          state[k] = parsed[k];
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('加载本地存储失败', e);
+  }
+}
+
+function syncStateToDOM() {
+  if (el.cellConstantInput) el.cellConstantInput.value = state.kCell.toFixed(3);
+  if (el.alphaInput) el.alphaInput.value = state.alpha.toFixed(2);
+  if (el.testTempInput) el.testTempInput.value = state.testTemp.toFixed(1);
+  if (el.tdsFactorInput) el.tdsFactorInput.value = state.tdsFactor.toFixed(2);
+  
+  if (el.simResistanceInput) el.simResistanceInput.value = state.simResistance;
+  if (el.simResUnitSelect) el.simResUnitSelect.value = state.simResUnit;
+  if (el.simConductivityInput) el.simConductivityInput.value = state.simConductivity;
+  if (el.simCondUnitSelect) el.simCondUnitSelect.value = state.simCondInputUnit;
+
+  if (el.phAlphaInput) el.phAlphaInput.value = state.phAlpha.toFixed(3);
+  if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(1);
+  if (el.phSimRefInput) el.phSimRefInput.value = state.phSimRef.toFixed(2);
+  if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
+
+  var syncPresetDropdown = function(inp, sel, prec) {
+    if (!inp || !sel) return;
+    var n = parseFloat(inp.value);
+    var f = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      var ov = sel.options[i].value;
+      if (ov !== 'custom' && Math.abs(parseFloat(ov) - n) < 1e-4) {
+        sel.value = ov;
+        f = true;
+        break;
+      }
+    }
+    if (!f) sel.value = 'custom';
+  };
+
+  syncPresetDropdown(el.cellConstantInput, el.cellConstantPresetSelect, 3);
+  syncPresetDropdown(el.alphaInput, el.alphaPresetSelect, 2);
+  syncPresetDropdown(el.testTempInput, el.testTempPresetSelect, 1);
+  syncPresetDropdown(el.tdsFactorInput, el.tdsFactorPresetSelect, 2);
+  syncPresetDropdown(el.phAlphaInput, el.phAlphaPresetSelect, 3);
+  syncPresetDropdown(el.phSimRefInput, el.phSimRefPresetSelect, 2);
+  syncPresetDropdown(el.phTestTempInput, el.phTestTempPresetSelect, 1);
+}
+
 function globalUpdate() {
   if(state.activeFactor==='ec'){
     updateRefCond();
@@ -1182,6 +1247,7 @@ function globalUpdate() {
     updatePHReadout();
   }
   updateFormulaCalcs();
+  saveState();
 }
 
 /* ---- 因子切换 ---- */
@@ -1274,11 +1340,25 @@ el.themeToggle.addEventListener('click',function(){
     b.classList.remove('light-theme');b.classList.add('dark-theme');
     el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
   }
+  saveState();
   redrawChartsOnly();
 });
 
 /* ---- 初始化 ---- */
-globalUpdate();
+loadSavedState();
+syncStateToDOM();
+var initTheme = state.theme || 'light';
+var b = document.body;
+if (initTheme === 'dark') {
+  b.classList.remove('light-theme');
+  b.classList.add('dark-theme');
+  el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+} else {
+  b.classList.remove('dark-theme');
+  b.classList.add('light-theme');
+  el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+}
+switchFactor(state.activeFactor, state.viewMode);
 
 }; /* end _appReady */
 </script>
