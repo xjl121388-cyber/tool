@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -105,7 +105,7 @@ body {
 .icon-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-glow); }
 .icon-btn svg { width: 18px; height: 18px; }
 .dashboard-grid {
-  display: grid; grid-template-columns: 390px 1fr 72px;
+  display: grid; grid-template-columns: 390px 1fr 148px;
   gap: 16px; flex-grow: 1; height: 0; min-height: 0;
 }
 .card {
@@ -226,10 +226,100 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
 }
 .factor-header { display: flex; justify-content: space-between; align-items: center; }
 .factor-header label { font-size: 11.5px; font-weight: 500; color: var(--text-primary); }
-.factor-panel, .factor-chart { display: none !important; height: 100%; }
+.factor-panel, .factor-chart, .factor-formula { display: none !important; height: 100%; }
 .factor-panel { flex-direction: column; gap: 12px; }
-.factor-chart { flex-direction: column; }
-.factor-panel.active, .factor-chart.active { display: flex !important; }
+.factor-chart, .factor-formula { flex-direction: column; }
+.factor-panel.active, .factor-chart.active, .factor-formula.active { display: flex !important; }
+
+/* ========== Formula Panel Layout ========== */
+.nav-group {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+}
+.formula-container {
+  display: flex;
+  gap: 20px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.formula-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 300px;
+}
+.formula-section h3 {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-outfit);
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 6px;
+  margin-top: 4px;
+}
+.formula-card-sub {
+  background: var(--readout-bg);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.formula-card-sub p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.math-block {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: 17px;
+  color: var(--color-primary);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  padding: 10px;
+  border-radius: var(--border-radius-sm);
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.math-block.success {
+  color: var(--color-success);
+}
+.math-step {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px;
+  border-radius: 6px;
+  border-left: 4px solid var(--color-primary);
+  line-height: 1.6;
+}
+.math-step.success {
+  border-left-color: var(--color-success);
+}
+.math-step .calc-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+.math-step .calc-line {
+  display: block;
+}
+.math-step .calc-result {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  color: var(--color-warning);
+  font-weight: bold;
+}
 .factor-nav {
   display: flex; flex-direction: column; gap: 16px;
   padding: 20px 8px !important; align-items: center; height: 100%;
@@ -259,11 +349,12 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   .control-panel{height:auto;overflow:visible}
   .chart-container{height:300px}
   .factor-nav{flex-direction:row;width:100%;height:auto;order:-1;justify-content:center;gap:20px;padding:10px!important}
+  .formula-container { flex-direction: column; height: auto; }
 }
 
 /* ========== 响应式适配 ========== */
 @media (max-width: 1100px) {
-  .dashboard-grid { grid-template-columns: 340px 1fr 64px; gap: 8px; }
+  .dashboard-grid { grid-template-columns: 340px 1fr 148px; gap: 8px; }
   .app-container { padding: 8px; }
 }
 @media (max-width: 860px) {
@@ -438,8 +529,9 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
       </div>
     </section>
 
-    <!-- 右面板: 图表 -->
+    <!-- 右面板: 图表与公式 -->
     <section class="visualizer-panel full-height">
+      <!-- EC 图表 -->
       <div id="chart-ec" class="card glass chart-card full-height factor-chart active">
         <div class="card-header justify-between">
           <div class="flex-align-center"><span class="icon">&#128200;</span><h2 id="chart-title">电导率-温度响应曲线</h2></div>
@@ -459,6 +551,72 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
         <div class="chart-separator"><span class="chart-separator-label">&#9660; 信号-测量值曲线</span></div>
         <div class="chart-container chart-half"><canvas id="ecSignalChart"></canvas></div>
       </div>
+      
+      <!-- EC 公式 -->
+      <div id="formula-ec" class="card glass chart-card full-height factor-formula">
+        <div class="card-header justify-between">
+          <div class="flex-align-center"><span class="icon">📝</span><h2>电导率 (EC) 计算与补偿公式</h2></div>
+        </div>
+        <div class="formula-container">
+          <div class="formula-section">
+            <h3>一、基础物理换算</h3>
+            
+            <div class="formula-card-sub">
+              <p><strong>1. 等效电阻与电导率转换：</strong> 在基准温度下，根据电极常数 K<sub>cell</sub> 和等效模拟阻值 R<sub>sim</sub> 计算溶液在当前温度下的实际电导率 K<sub>t</sub>：</p>
+              <div class="math-block">K<sub>t</sub> = (K<sub>cell</sub> / R<sub>sim</sub>) &times; 10<sup>6</sup></div>
+              <div class="math-step" id="ec-formula-kt-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ec-calc-kt-1">K<sub>t</sub> = (1.0 / 20000 &Omega;) &times; 10<sup>6</sup></span>
+                <span class="calc-result" id="ec-calc-kt-res">K<sub>t</sub> = 50.00 &mu;S/cm</span>
+              </div>
+            </div>
+
+            <div class="formula-card-sub">
+              <p><strong>2. 物理电阻率：</strong> 电阻率 &rho;<sub>t</sub> 与实际电导率 K<sub>t</sub> 互为倒数关系：</p>
+              <div class="math-block">&rho;<sub>t</sub> = 1 / (K<sub>t</sub> &times; 10<sup>-6</sup>)</div>
+              <div class="math-step" id="ec-formula-res-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ec-calc-res-1">&rho;<sub>t</sub> = 1 / (50.00 &times; 10<sup>-6</sup>)</span>
+                <span class="calc-result" id="ec-calc-res-res">&rho;<sub>t</sub> = 20.00 k&Omega;&middot;cm</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="formula-section">
+            <h3>二、温度补偿与浓度换算</h3>
+
+            <div class="formula-card-sub">
+              <p><strong>3. 温度系数补偿（参考 25&deg;C）：</strong> 基于线性温补公式，计算从测试温度 t<sub>test</sub> 补偿回 25&deg;C 时的基准电导率 K<sub>25</sub>：</p>
+              <div class="math-block">K<sub>25</sub> = K<sub>t</sub> / [1 + (&alpha; / 100) &times; (t<sub>test</sub> - 25)]</div>
+              <div class="math-step" id="ec-formula-k25-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ec-calc-k25-1">K<sub>25</sub> = 50.00 / [1 + (2.00 / 100) &times; (25.0 - 25)]</span>
+                <span class="calc-result" id="ec-calc-k25-res">K<sub>25</sub> = 50.00 &mu;S/cm</span>
+              </div>
+            </div>
+
+            <div class="formula-card-sub">
+              <p><strong>4. TDS (总溶解固体) 换算：</strong> 将补偿后的基准电导率 K<sub>25</sub> 乘上换算系数（TDS Factor）得到 TDS 值：</p>
+              <div class="math-block">TDS (ppm) = K<sub>25</sub> &times; TDS_Factor</div>
+              <div class="math-step" id="ec-formula-tds-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ec-calc-tds-1">TDS = 50.00 &times; 0.50</span>
+                <span class="calc-result" id="ec-calc-tds-res">TDS = 25.0 ppm</span>
+              </div>
+            </div>
+            
+            <div class="formula-card-sub">
+              <p><strong>5. 盐度 (Salinity) 经验换算：</strong> 基于电导率 K<sub>t</sub>（单位换算为 mS/cm）进行非线性分段经验公式拟合计算。</p>
+              <div class="math-step" id="ec-formula-sal-step">
+                <div class="calc-title">当前盐度计算结果</div>
+                <span class="calc-result" id="ec-calc-sal-res">Salinity = 0.0299 ppt</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- pH 图表 -->
       <div id="chart-ph" class="card glass chart-card full-height factor-chart">
         <div class="card-header justify-between">
           <div class="flex-align-center"><span class="icon">&#129514;</span><h2 id="ph-chart-title">pH-温度响应曲线</h2></div>
@@ -476,12 +634,88 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
         <div class="chart-separator"><span class="chart-separator-label">&#9660; 信号-测量值曲线</span></div>
         <div class="chart-container chart-half"><canvas id="phSignalChart"></canvas></div>
       </div>
+
+      <!-- pH 公式 -->
+      <div id="formula-ph" class="card glass chart-card full-height factor-formula">
+        <div class="card-header justify-between">
+          <div class="flex-align-center"><span class="icon">📝</span><h2>pH 计算与 Nernst 温度补偿公式</h2></div>
+        </div>
+        <div class="formula-container">
+          <div class="formula-section">
+            <h3>一、能斯特 (Nernst) 响应原理</h3>
+            
+            <div class="formula-card-sub">
+              <p><strong>1. 能斯特响应斜率 (S)：</strong> 玻璃电极的理论电位输出随温度而改变，其 Nernst 斜率 S 在不同温度 t<sub>test</sub> (&deg;C) 下为：</p>
+              <div class="math-block">S = (R &middot; T / F) &middot; ln(10) &middot; 1000 &approx; 0.198416 &times; (t<sub>test</sub> + 273.15)</div>
+              <div class="math-step success" id="ph-formula-slope-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ph-calc-slope-1">S = 0.198416 &times; (25.0 + 273.15)</span>
+                <span class="calc-result" id="ph-calc-slope-res">S = 59.16 mV/pH</span>
+              </div>
+            </div>
+
+            <div class="formula-card-sub">
+              <p><strong>2. 能斯特电势公式：</strong> 以 pH 7.00 (中性零电点) 为参考基准，等效输出电势 mV<sub>sim</sub> 与实际 pH<sub>test</sub> 的理论对应关系为：</p>
+              <div class="math-block">mV<sub>sim</sub> = (7 - pH<sub>test</sub>) &times; S</div>
+              <div class="math-step success" id="ph-formula-mv-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ph-calc-mv-1">mV = (7 - 7.00) &times; 59.16</span>
+                <span class="calc-result" id="ph-calc-mv-res">mV = 0.0 mV</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="formula-section">
+            <h3>二、介质自身温度系数补偿</h3>
+
+            <div class="formula-card-sub">
+              <p><strong>3. 介质 pH 随温度的漂移公式：</strong> 溶液（特别是缓冲液）自身的 pH 随温度而改变。已知基准 25&deg;C 时的 pH 值为 pH<sub>ref</sub>，在其测试温度 t<sub>test</sub> 下的实际 pH<sub>test</sub> 为：</p>
+              <div class="math-block">pH<sub>test</sub> = pH<sub>ref</sub> + &alpha;<sub>ph</sub> &times; (t<sub>test</sub> - 25)</div>
+              <div class="math-step success" id="ph-formula-pht-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ph-calc-pht-1">pH<sub>test</sub> = 7.00 + (-0.005) &times; (25.0 - 25)</span>
+                <span class="calc-result" id="ph-calc-pht-res">pH<sub>test</sub> = 7.00 pH</span>
+              </div>
+            </div>
+
+            <div class="formula-card-sub">
+              <p><strong>4. H<sup>+</sup> 离子浓度换算：</strong> 溶液的氢离子活度（浓度）与 pH 呈负对数关系：</p>
+              <div class="math-block">[H<sup>+</sup>] = 10<sup>-pH<sub>test</sub></sup></div>
+              <div class="math-step success" id="ph-formula-hconc-step">
+                <div class="calc-title">实时计算过程</div>
+                <span class="calc-line" id="ph-calc-hconc-1">[H<sup>+</sup>] = 10<sup>-7.00</sup></span>
+                <span class="calc-result" id="ph-calc-hconc-res">[H<sup>+</sup>] = 1.00e-7 mol/L</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- 导航栏 -->
     <nav class="card factor-nav">
-      <button type="button" class="factor-nav-btn active" data-factor="ec" title="电导率"><span class="icon">&#128166;</span><span class="label">电导率</span></button>
-      <button type="button" class="factor-nav-btn" data-factor="ph" title="酸碱度"><span class="icon">&#129514;</span><span class="label">酸碱度</span></button>
+      <!-- 电导率组 -->
+      <div class="nav-group">
+        <button type="button" class="factor-nav-btn formula-nav-btn" data-factor="ec" data-mode="formula" title="查看电导率公式">
+          <span class="icon">fx</span>
+          <span class="label">公式</span>
+        </button>
+        <button type="button" class="factor-nav-btn active" data-factor="ec" data-mode="sim" title="电导率仿真">
+          <span class="icon">&#128166;</span>
+          <span class="label">电导率</span>
+        </button>
+      </div>
+      <!-- 酸碱度组 -->
+      <div class="nav-group">
+        <button type="button" class="factor-nav-btn formula-nav-btn" data-factor="ph" data-mode="formula" title="查看酸碱度公式">
+          <span class="icon">fx</span>
+          <span class="label">公式</span>
+        </button>
+        <button type="button" class="factor-nav-btn" data-factor="ph" data-mode="sim" title="酸碱度仿真">
+          <span class="icon">&#129514;</span>
+          <span class="label">酸碱度</span>
+        </button>
+      </div>
     </nav>
   </main>
 
@@ -506,7 +740,7 @@ window._appReady = function() {
 
 /* ---- 状态机 ---- */
 var state = {
-  activeFactor: 'ec',
+  activeFactor: 'ec', viewMode: 'sim',
   kCell: 1.0, alpha: 2.0, simResistance: 20000, simResUnit: 'ohm',
   simConductivity: 50.00, simCondInputUnit: 'uS/cm', simMode: 'res',
   refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
@@ -832,7 +1066,7 @@ function updatePHSignalChart(data) {
 
 /* ---- 统一更新 ---- */
 function redrawChartsOnly() {
-  if(typeof Chart==='undefined') return;
+  if(typeof Chart==='undefined' || state.viewMode!=='sim') return;
   if(state.activeFactor==='ec'&&lastECData){
     if(conductivityChart) conductivityChart.destroy();
     if(ecSignalChart) ecSignalChart.destroy();
@@ -846,11 +1080,93 @@ function redrawChartsOnly() {
   }
 }
 
+function updateFormulaCalcs() {
+  if (state.activeFactor === 'ec') {
+    var rOhm = state.simResUnit === 'kohm' ? state.simResistance * 1000 : state.simResistance;
+    var kt = calcKt(state.refCond, state.alpha, state.testTemp);
+    var tds = kt * state.tdsFactor;
+    var sal = calcSalinity(kt);
+
+    var elKtCalc1 = $('ec-calc-kt-1');
+    var elKtCalcRes = $('ec-calc-kt-res');
+    if (elKtCalc1 && elKtCalcRes) {
+      elKtCalc1.innerHTML = 'K<sub>t</sub> = (' + state.kCell.toFixed(3) + ' / ' + rOhm.toFixed(1) + ' &Omega;) &times; 10<sup>6</sup>';
+      elKtCalcRes.innerHTML = 'K<sub>t</sub> = ' + kt.toFixed(2) + ' &mu;S/cm';
+    }
+
+    var elResCalc1 = $('ec-calc-res-1');
+    var elResCalcRes = $('ec-calc-res-res');
+    if (elResCalc1 && elResCalcRes) {
+      elResCalc1.innerHTML = '&rho;<sub>t</sub> = 1 / (' + kt.toFixed(2) + ' &times; 10<sup>-6</sup> S/cm)';
+      var resStr = '开路';
+      if (kt > 0.0001) {
+        if (1/kt >= 1) resStr = (1/kt).toFixed(3) + ' M&Omega;&middot;cm';
+        else if (1/kt >= 0.001) resStr = ((1/kt)*1000).toFixed(1) + ' k&Omega;&middot;cm';
+        else resStr = ((1/kt)*1000000).toFixed(0) + ' &Omega;&middot;cm';
+      }
+      elResCalcRes.innerHTML = '&rho;<sub>t</sub> = ' + resStr;
+    }
+
+    var elK25Calc1 = $('ec-calc-k25-1');
+    var elK25CalcRes = $('ec-calc-k25-res');
+    if (elK25Calc1 && elK25CalcRes) {
+      elK25Calc1.innerHTML = 'K<sub>25</sub> = ' + kt.toFixed(2) + ' / [1 + (' + state.alpha.toFixed(2) + ' / 100) &times; (' + state.testTemp.toFixed(1) + ' - 25)]';
+      elK25CalcRes.innerHTML = 'K<sub>25</sub> = ' + state.refCond.toFixed(2) + ' &mu;S/cm';
+    }
+
+    var elTdsCalc1 = $('ec-calc-tds-1');
+    var elTdsCalcRes = $('ec-calc-tds-res');
+    if (elTdsCalc1 && elTdsCalcRes) {
+      elTdsCalc1.innerHTML = 'TDS = ' + state.refCond.toFixed(2) + ' &times; ' + state.tdsFactor.toFixed(2);
+      elTdsCalcRes.innerHTML = 'TDS = ' + tds.toFixed(1) + ' ppm';
+    }
+
+    var elSalCalcRes = $('ec-calc-sal-res');
+    if (elSalCalcRes) {
+      elSalCalcRes.innerHTML = 'Salinity = ' + sal.toFixed(4) + ' ppt';
+    }
+  } else {
+    var slope = 0.198416 * (state.phTestTemp + 273.15);
+    var pHt = state.phSimRef + state.phAlpha * (state.phTestTemp - 25);
+    var pHtClamped = Math.max(-2, Math.min(16, pHt));
+    var hc = Math.pow(10, -pHtClamped);
+    var mV = (7 - pHtClamped) * slope;
+
+    var elSlopeCalc1 = $('ph-calc-slope-1');
+    var elSlopeCalcRes = $('ph-calc-slope-res');
+    if (elSlopeCalc1 && elSlopeCalcRes) {
+      elSlopeCalc1.innerHTML = 'S = 0.198416 &times; (' + state.phTestTemp.toFixed(1) + ' + 273.15)';
+      elSlopeCalcRes.innerHTML = 'S = ' + slope.toFixed(2) + ' mV/pH';
+    }
+
+    var elMvCalc1 = $('ph-calc-mv-1');
+    var elMvCalcRes = $('ph-calc-mv-res');
+    if (elMvCalc1 && elMvCalcRes) {
+      elMvCalc1.innerHTML = 'mV = (7 - ' + pHtClamped.toFixed(2) + ') &times; ' + slope.toFixed(2);
+      elMvCalcRes.innerHTML = 'mV = ' + mV.toFixed(1) + ' mV';
+    }
+
+    var elPhtCalc1 = $('ph-calc-pht-1');
+    var elPhtCalcRes = $('ph-calc-pht-res');
+    if (elPhtCalc1 && elPhtCalcRes) {
+      elPhtCalc1.innerHTML = 'pH<sub>test</sub> = ' + state.phSimRef.toFixed(2) + ' + (' + state.phAlpha.toFixed(3) + ') &times; (' + state.phTestTemp.toFixed(1) + ' - 25)';
+      elPhtCalcRes.innerHTML = 'pH<sub>test</sub> = ' + pHtClamped.toFixed(2) + ' pH';
+    }
+
+    var elHconcCalc1 = $('ph-calc-hconc-1');
+    var elHconcCalcRes = $('ph-calc-hconc-res');
+    if (elHconcCalc1 && elHconcCalcRes) {
+      elHconcCalc1.innerHTML = '[H<sup>+</sup>] = 10<sup>-' + pHtClamped.toFixed(2) + '</sup>';
+      elHconcCalcRes.innerHTML = '[H<sup>+</sup>] = ' + hc.toExponential(2) + ' mol/L';
+    }
+  }
+}
+
 function globalUpdate() {
   if(state.activeFactor==='ec'){
     updateRefCond();
     var d=genECData();
-    if(typeof Chart!=='undefined'){
+    if(typeof Chart!=='undefined' && state.viewMode==='sim'){
       updateECChart(d);
       updateECSignalChart(d);
     }
@@ -858,20 +1174,39 @@ function globalUpdate() {
   } else {
     updateRefPh();
     var d=genPHData();
-    if(typeof Chart!=='undefined'){
+    if(typeof Chart!=='undefined' && state.viewMode==='sim'){
       updatePHChart(d);
       updatePHSignalChart(d);
     }
     updatePHReadout();
   }
+  updateFormulaCalcs();
 }
 
 /* ---- 因子切换 ---- */
-function switchFactor(id) {
-  state.activeFactor=id;
-  el.factorNavButtons.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-factor')===id);});
-  document.querySelectorAll('.factor-panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+id);});
-  document.querySelectorAll('.factor-chart').forEach(function(c){c.classList.toggle('active',c.id==='chart-'+id);});
+function switchFactor(id, mode) {
+  mode = mode || state.viewMode || 'sim';
+  state.activeFactor = id;
+  state.viewMode = mode;
+
+  el.factorNavButtons.forEach(function(b){
+    var bFactor = b.getAttribute('data-factor');
+    var bMode = b.getAttribute('data-mode') || 'sim';
+    b.classList.toggle('active', bFactor === id && bMode === mode);
+  });
+
+  document.querySelectorAll('.factor-panel').forEach(function(p){
+    p.classList.toggle('active', p.id==='panel-'+id);
+  });
+
+  document.querySelectorAll('.factor-chart').forEach(function(c){
+    c.classList.toggle('active', mode === 'sim' && c.id==='chart-'+id);
+  });
+
+  document.querySelectorAll('.factor-formula').forEach(function(f){
+    f.classList.toggle('active', mode === 'formula' && f.id==='formula-'+id);
+  });
+
   globalUpdate();
 }
 
@@ -923,7 +1258,11 @@ el.phChartModeButtons.forEach(function(btn){
   });
 });
 el.factorNavButtons.forEach(function(btn){
-  btn.addEventListener('click',function(e){switchFactor(e.currentTarget.getAttribute('data-factor'));});
+  btn.addEventListener('click',function(e){
+    var factor = e.currentTarget.getAttribute('data-factor');
+    var mode = e.currentTarget.getAttribute('data-mode') || 'sim';
+    switchFactor(factor, mode);
+  });
 });
 el.themeToggle.addEventListener('click',function(){
   var b=document.body;
