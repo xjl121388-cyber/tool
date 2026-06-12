@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>电导率温度系数可视化分析软件 - 极简标定版</title>
+<!-- KaTeX 库用于书本格式的公式渲染 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+        ],
+        throwOnError : false
+      });
+  });
+</script>
 <style>
 /* ========== 设计系统与变量 ========== */
 :root {
@@ -53,6 +68,49 @@
   --card-shadow: 0 12px 40px 0 rgba(31,38,135,0.06), 0 2px 8px 0 rgba(0,0,0,0.02);
   --inner-glow: inset 0 1px 1px rgba(255,255,255,0.4);
   --readout-bg: rgba(240,242,245,0.8);
+}
+/* Dynamic Themes */
+body.theme-ec {
+  --color-secondary: hsl(190, 80%, 65%);
+  --color-accent: hsl(170, 80%, 55%);
+  --color-warning: hsl(200, 80%, 75%);
+}
+.light-theme.theme-ec {
+  --color-secondary: hsl(190, 85%, 40%);
+  --color-accent: hsl(170, 85%, 35%);
+  --color-warning: hsl(200, 85%, 45%);
+}
+body.theme-ph {
+  --color-primary: hsl(135, 70%, 50%);
+  --color-primary-rgb: 38, 217, 83;
+  --color-primary-glow: hsla(135, 70%, 50%, 0.15);
+  --color-secondary: hsl(120, 60%, 55%);
+  --color-accent: hsl(150, 60%, 45%);
+  --color-warning: hsl(100, 60%, 65%);
+}
+.light-theme.theme-ph {
+  --color-primary: hsl(135, 75%, 40%);
+  --color-primary-rgb: 25, 178, 64;
+  --color-primary-glow: rgba(25, 178, 64, 0.1);
+  --color-secondary: hsl(120, 70%, 35%);
+  --color-accent: hsl(150, 70%, 30%);
+  --color-warning: hsl(100, 70%, 45%);
+}
+body.theme-modbus {
+  --color-primary: hsl(35, 95%, 65%);
+  --color-primary-rgb: 253, 175, 78;
+  --color-primary-glow: rgba(253, 175, 78, 0.15);
+  --color-secondary: hsl(25, 95%, 70%);
+  --color-accent: hsl(45, 95%, 60%);
+  --color-warning: hsl(15, 95%, 75%);
+}
+.light-theme.theme-modbus {
+  --color-primary: hsl(35, 90%, 50%);
+  --color-primary-rgb: 242, 140, 12;
+  --color-primary-glow: rgba(242, 140, 12, 0.1);
+  --color-secondary: hsl(25, 90%, 55%);
+  --color-accent: hsl(45, 90%, 45%);
+  --color-warning: hsl(15, 90%, 60%);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -231,7 +289,81 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
 .factor-chart, .factor-formula { flex-direction: column; }
 .factor-panel.active, .factor-chart.active, .factor-formula.active { display: flex !important; }
 
-/* ========== Formula Panel Layout ========== */
+/* ========== Document Style Formula Layout ========== */
+.doc-format {
+  padding: 20px 40px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.8;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+.doc-format h3 {
+  font-size: 18px;
+  border-bottom: 2px solid var(--border-glass);
+  padding-bottom: 8px;
+  margin-top: 10px;
+  margin-bottom: 16px;
+  color: var(--color-primary);
+}
+.doc-format p {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+}
+.book-style .formula-block {
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.book-style p {
+  color: var(--text-primary);
+  font-size: 14.5px;
+  margin-bottom: 8px;
+}
+.book-style .math-display {
+  text-align: center;
+  font-size: 1.2em;
+  margin: 16px 0;
+  padding: 10px;
+  color: var(--text-primary);
+  overflow-x: auto;
+}
+.book-style .math-legend {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border-glass);
+}
+.book-style .math-legend p {
+  font-size: 13.5px;
+  font-weight: bold;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.book-style .math-legend ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.book-style .math-legend li {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.6;
+}
+.book-style .math-legend li .sym {
+  display: inline-block;
+  min-width: 60px;
+  text-align: right;
+  margin-right: 12px;
+}
+
+
 .nav-group {
   display: flex;
   flex-direction: row;
@@ -239,88 +371,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   width: 100%;
   justify-content: center;
 }
-.formula-container {
-  display: flex;
-  gap: 20px;
-  flex-grow: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.formula-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 300px;
-}
-.formula-section h3 {
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-family: var(--font-outfit);
-  border-bottom: 1px solid var(--border-glass);
-  padding-bottom: 6px;
-  margin-top: 4px;
-}
-.formula-card-sub {
-  background: var(--readout-bg);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--border-radius-sm);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.formula-card-sub p {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-.math-block {
-  font-family: 'Outfit', var(--font-sans);
-  font-size: 17px;
-  color: var(--color-primary);
-  background: var(--bg-glass);
-  border: 1px solid var(--border-glass);
-  padding: 10px;
-  border-radius: var(--border-radius-sm);
-  text-align: center;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-.math-block.success {
-  color: var(--color-success);
-}
-.math-step {
-  font-family: monospace;
-  font-size: 13px;
-  color: var(--text-primary);
-  background: var(--readout-bg);
-  border: 1px solid var(--border-glass);
-  padding: 10px;
-  border-radius: 6px;
-  border-left: 4px solid var(--color-primary);
-  line-height: 1.6;
-}
-.math-step.success {
-  border-left-color: var(--color-success);
-}
-.math-step .calc-title {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  margin-bottom: 4px;
-  font-weight: bold;
-}
-.math-step .calc-line {
-  display: block;
-}
-.math-step .calc-result {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.1);
-  color: var(--color-warning);
-  font-weight: bold;
-}
+
 .factor-nav {
   display: flex; flex-direction: column; gap: 16px;
   padding: 20px 8px !important; align-items: center; height: 100%;
@@ -335,14 +386,47 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
 .factor-nav-btn:hover { border-color: var(--border-glass-hover); color: var(--text-primary); background: rgba(255,255,255,0.05); transform: translateY(-2px); }
 .factor-nav-btn .icon { font-size: 20px; }
 .factor-nav-btn .label { font-size: 9.5px; font-weight: 600; }
-.factor-nav-btn.active[data-factor="ec"] {
+.factor-nav-btn.active {
   border-color: var(--color-primary); background: var(--color-primary-glow);
   color: var(--color-primary); box-shadow: 0 0 15px rgba(var(--color-primary-rgb),0.25);
 }
-.factor-nav-btn.active[data-factor="ph"] {
-  border-color: var(--color-success); background: rgba(48,209,88,0.12);
-  color: var(--color-success); box-shadow: 0 0 15px rgba(48,209,88,0.25);
-}
+
+/* ========== Modbus 解析面板样式 ========== */
+.modbus-container { overflow-y: auto; height: 100%; padding-right: 4px; display: flex; flex-direction: column; gap: 20px; }
+.modbus-section { background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--border-radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.modbus-section h3 { font-size: 15px; color: var(--color-primary); font-weight: 600; border-bottom: 1px dashed var(--border-glass); padding-bottom: 8px; margin-top: 0; }
+.modbus-input-row { display: flex; gap: 10px; align-items: stretch; }
+.modbus-input-row input { flex-grow: 1; padding: 10px 12px; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--border-radius-sm); color: var(--text-primary); font-family: monospace; font-size: 14px; letter-spacing: 1px; }
+.modbus-input-row input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-glow); }
+.modbus-input-row button { padding: 0 20px; background: var(--color-primary); color: #fff; border: none; border-radius: var(--border-radius-sm); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: var(--transition-smooth); white-space: nowrap; }
+.modbus-input-row button:hover { background: hsl(180, 85%, 40%); transform: translateY(-1px); }
+.modbus-result { margin-top: 8px; display: none; }
+.modbus-result.active { display: block; }
+.byte-blocks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.byte-block { display: flex; flex-direction: column; align-items: center; background: var(--bg-glass); border-radius: 4px; border: 1px solid var(--border-glass); overflow: hidden; min-width: 48px; }
+.byte-block .hex { padding: 6px 8px; font-family: monospace; font-weight: bold; font-size: 14px; color: #fff; background: rgba(0,0,0,0.2); width: 100%; text-align: center; }
+.byte-block .desc { padding: 4px 6px; font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.05); width: 100%; text-align: center; white-space: nowrap; }
+.byte-block.slave .hex { background: hsl(210, 80%, 45%); }
+.byte-block.func .hex { background: hsl(280, 70%, 45%); }
+.byte-block.addr .hex { background: hsl(30, 90%, 45%); }
+.byte-block.data .hex { background: hsl(150, 70%, 35%); }
+.byte-block.crc .hex { background: hsl(350, 70%, 45%); }
+.byte-block.error .hex { background: hsl(0, 80%, 45%); }
+.modbus-details-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg-glass); border-radius: var(--border-radius-sm); overflow: hidden; }
+.modbus-details-table th, .modbus-details-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-glass); }
+.modbus-details-table th { background: rgba(0,0,0,0.15); color: var(--text-secondary); font-weight: 500; }
+.modbus-details-table td { color: var(--text-primary); }
+.modbus-details-table tr:last-child td { border-bottom: none; }
+.modbus-error-text { color: var(--color-danger); font-size: 13.5px; padding: 10px; background: rgba(218,30,40,0.1); border-radius: 4px; border: 1px solid rgba(218,30,40,0.2); }
+.col-resizer { position: absolute; top: 0; right: 0; width: 12px; height: 100%; cursor: col-resize; user-select: none; z-index: 10; transition: background 0.2s; border-left: 1px dashed var(--border-glass); background: rgba(0,0,0,0.05); }
+.col-resizer::after { content: "⋮"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-secondary); font-size: 16px; font-weight: bold; line-height: 1; }
+.col-resizer:hover, .col-resizer.dragging { background-color: var(--color-primary); opacity: 0.8; }
+.col-resizer:hover::after, .col-resizer.dragging::after { color: #fff; }
+
+.data-format-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.data-fmt-box { background: rgba(0,0,0,0.15); border: 1px solid var(--border-glass); border-radius: 4px; padding: 6px; text-align: center; }
+.data-fmt-box .fmt-lbl { font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; }
+.data-fmt-box .fmt-val { font-family: monospace; font-size: 13px; color: var(--text-primary); font-weight: bold; word-break: break-all; }
 
 /* ========== Cookie 同步弹窗 ========== */
 .cookie-banner-container {
@@ -440,7 +524,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   .control-panel{height:auto;overflow:visible}
   .chart-container{height:300px}
   .factor-nav{flex-direction:row;width:100%;height:auto;order:-1;justify-content:center;gap:20px;padding:10px!important}
-  .formula-container { flex-direction: column; height: auto; }
+  .doc-format { padding: 16px; }
   .cookie-banner-content { flex-direction: column; align-items: stretch; gap: 16px; }
   .cookie-btn-area { justify-content: flex-end; }
 }
@@ -474,17 +558,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
       </div>
     </div>
     <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
-      <button id="export-config" class="icon-btn" title="导出配置 (JSON)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-        </svg>
-      </button>
-      <button id="import-config" class="icon-btn" title="导入配置 (JSON)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-        </svg>
-      </button>
-      <input type="file" id="import-file-input" style="display:none;" accept=".json">
+
       <button id="theme-toggle" class="icon-btn" title="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
@@ -631,6 +705,61 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           <div class="readout-status">测量点状态：<span id="ph-readout-status-text">参考基准温度点 (T_ref)</span></div>
         </div>
       </div>
+      
+      <!-- Modbus 面板 -->
+      <div id="panel-modbus" class="factor-panel">
+        <div class="card glass full-height modbus-container" style="overflow-y: auto;">
+          <div class="modbus-section" style="padding: 12px 16px; flex-direction: row; align-items: center; justify-content: space-between;">
+            <h3 style="margin: 0; border: none; padding: 0;">协议类型选择</h3>
+            <select id="modbus-protocol-select" style="padding: 6px 12px; background: var(--bg-glass); border: 1px solid var(--color-primary); border-radius: 4px; color: var(--color-primary); font-weight: bold; outline: none; cursor: pointer;">
+              <option value="rtu">Modbus RTU (带 CRC)</option>
+              <option value="tcp">Modbus TCP (带 MBAP 头)</option>
+            </select>
+          </div>
+          <!-- TX 报文 -->
+          <div class="modbus-section">
+            <h3>TX 发送报文解析 (Request)</h3>
+            <div class="modbus-input-row">
+              <input type="text" id="modbus-tx-input" placeholder="请输入发送报文 Hex 字符串，如: 01 03 00 00 00 02 C4 0B" autocomplete="off">
+              <button id="btn-parse-tx">开始解析</button>
+            </div>
+          </div>
+          <!-- RX 报文 -->
+          <div class="modbus-section">
+            <h3>RX 接收报文解析 (Response)</h3>
+            <div class="modbus-input-row">
+              <input type="text" id="modbus-rx-input" placeholder="请输入接收报文 Hex 字符串，如: 01 03 04 01 23 45 67 DA 4A" autocomplete="off">
+              <button id="btn-parse-rx">开始解析</button>
+            </div>
+          </div>
+          
+          <!-- 数据类型解析器 -->
+          <div class="modbus-section">
+            <h3 style="margin-bottom: 4px;"><span class="icon">🧮</span>字节解析</h3>
+            <div class="modbus-input-row">
+              <input type="text" id="modbus-data-input" placeholder="输入 2 或 4 字节的 Hex 数据，如: C5 46" autocomplete="off">
+              <button id="btn-parse-data">开始解析</button>
+            </div>
+          </div>
+          
+          <!-- 速查手册 -->
+          <div class="modbus-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-glass);">
+            <h3 style="margin-bottom: 12px;"><span class="icon">📖</span>Modbus 协议速查手册</h3>
+            <div class="doc-format" style="padding: 0 8px;">
+              <p><strong>常用功能码</strong></p>
+              <table class="modbus-details-table" style="font-size: 12px; margin-bottom: 16px;">
+                <tr><th>功能码</th><th>说明</th></tr>
+                <tr><td>03</td><td>读保持寄存器 (可读写)</td></tr>
+                <tr><td>04</td><td>读输入寄存器 (只读)</td></tr>
+                <tr><td>06</td><td>写单个寄存器</td></tr>
+                <tr><td>16 (0x10)</td><td>写多个寄存器</td></tr>
+              </table>
+              <p><strong>校验算法</strong></p>
+              <p style="color:var(--text-secondary); font-size:12px;">RTU 采用 CRC-16 (0xA001)，低字节在前，高字节在后。系统解析时将自动进行校验比对。</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- 右面板: 图表与公式 -->
@@ -659,64 +788,65 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
       <!-- EC 公式 -->
       <div id="formula-ec" class="card glass chart-card full-height factor-formula">
         <div class="card-header justify-between">
-          <div class="flex-align-center"><span class="icon">📝</span><h2>电导率 (EC) 计算与补偿公式</h2></div>
+          <div class="flex-align-center"><span class="icon">📝</span><h2>电导率-公式</h2></div>
         </div>
-        <div class="formula-container">
-          <div class="formula-section">
-            <h3>一、基础物理换算</h3>
-            
-            <div class="formula-card-sub">
-              <p><strong>1. 等效电阻与电导率转换：</strong> 在基准温度下，根据电极常数 K<sub>cell</sub> 和等效模拟阻值 R<sub>sim</sub> 计算溶液在当前温度下的实际电导率 K<sub>t</sub>：</p>
-              <div class="math-block">K<sub>t</sub> = (K<sub>cell</sub> / R<sub>sim</sub>) &times; 10<sup>6</sup></div>
-              <div class="math-step" id="ec-formula-kt-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ec-calc-kt-1">K<sub>t</sub> = (1.0 / 20000 &Omega;) &times; 10<sup>6</sup></span>
-                <span class="calc-result" id="ec-calc-kt-res">K<sub>t</sub> = 50.00 &mu;S/cm</span>
-              </div>
-            </div>
-
-            <div class="formula-card-sub">
-              <p><strong>2. 物理电阻率：</strong> 电阻率 &rho;<sub>t</sub> 与实际电导率 K<sub>t</sub> 互为倒数关系：</p>
-              <div class="math-block">&rho;<sub>t</sub> = 1 / (K<sub>t</sub> &times; 10<sup>-6</sup>)</div>
-              <div class="math-step" id="ec-formula-res-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ec-calc-res-1">&rho;<sub>t</sub> = 1 / (50.00 &times; 10<sup>-6</sup>)</span>
-                <span class="calc-result" id="ec-calc-res-res">&rho;<sub>t</sub> = 20.00 k&Omega;&middot;cm</span>
-              </div>
+        <div class="doc-format book-style">
+          <h3>一、基础物理换算</h3>
+          
+          <div class="formula-block">
+            <p><strong>1. 等效电阻与电导率转换：</strong></p>
+            <div class="math-display">$$ K_t = \frac{K_{cell}}{R_{sim}} \times 10^6 $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$K_t$</span>：当前温度下的实际电导率，单位为 $\mu S/cm$</li>
+                <li><span class="sym">$K_{cell}$</span>：电极常数（Cell Constant），通常为 $0.01, 0.1, 1.0$ 等，单位为 $cm^{-1}$</li>
+                <li><span class="sym">$R_{sim}$</span>：等效模拟阻值，即传感器测量到的物理电阻，单位为 $\Omega$</li>
+              </ul>
             </div>
           </div>
-
-          <div class="formula-section">
-            <h3>二、温度补偿与浓度换算</h3>
-
-            <div class="formula-card-sub">
-              <p><strong>3. 温度系数补偿（参考 25&deg;C）：</strong> 基于线性温补公式，计算从测试温度 t<sub>test</sub> 补偿回 25&deg;C 时的基准电导率 K<sub>25</sub>：</p>
-              <div class="math-block">K<sub>25</sub> = K<sub>t</sub> / [1 + (&alpha; / 100) &times; (t<sub>test</sub> - 25)]</div>
-              <div class="math-step" id="ec-formula-k25-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ec-calc-k25-1">K<sub>25</sub> = 50.00 / [1 + (2.00 / 100) &times; (25.0 - 25)]</span>
-                <span class="calc-result" id="ec-calc-k25-res">K<sub>25</sub> = 50.00 &mu;S/cm</span>
-              </div>
-            </div>
-
-            <div class="formula-card-sub">
-              <p><strong>4. TDS (总溶解固体) 换算：</strong> 将补偿后的基准电导率 K<sub>25</sub> 乘上换算系数（TDS Factor）得到 TDS 值：</p>
-              <div class="math-block">TDS (ppm) = K<sub>25</sub> &times; TDS_Factor</div>
-              <div class="math-step" id="ec-formula-tds-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ec-calc-tds-1">TDS = 50.00 &times; 0.50</span>
-                <span class="calc-result" id="ec-calc-tds-res">TDS = 25.0 ppm</span>
-              </div>
-            </div>
-            
-            <div class="formula-card-sub">
-              <p><strong>5. 盐度 (Salinity) 经验换算：</strong> 基于电导率 K<sub>t</sub>（单位换算为 mS/cm）进行非线性分段经验公式拟合计算。</p>
-              <div class="math-step" id="ec-formula-sal-step">
-                <div class="calc-title">当前盐度计算结果</div>
-                <span class="calc-result" id="ec-calc-sal-res">Salinity = 0.0299 ppt</span>
-              </div>
+          
+          <div class="formula-block">
+            <p><strong>2. 物理电阻率：</strong></p>
+            <div class="math-display">$$ \rho_t = \frac{1}{K_t \times 10^{-6}} $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$\rho_t$</span>：物理电阻率，与实际电导率互为倒数关系，单位为 $\Omega \cdot cm$</li>
+                <li><span class="sym">$K_t$</span>：当前温度下的实际电导率，单位为 $\mu S/cm$</li>
+              </ul>
             </div>
           </div>
+          
+          <h3>二、温度补偿与浓度换算</h3>
+          
+          <div class="formula-block">
+            <p><strong>3. 温度系数补偿（参考 25°C）：</strong> 基于线性温补公式计算：</p>
+            <div class="math-display">$$ K_{25} = \frac{K_t}{1 + \frac{\alpha}{100} \times (t_{test} - 25)} $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$K_{25}$</span>：补偿至基准温度（通常为 25°C）下的电导率，单位为 $\mu S/cm$</li>
+                <li><span class="sym">$K_t$</span>：测试温度 $t_{test}$ 下的实际电导率，单位为 $\mu S/cm$</li>
+                <li><span class="sym">$\alpha$</span>：温度补偿系数，代表每升高 1°C 电导率增加的百分比，通常为 $2.0\%/^\circ C$</li>
+                <li><span class="sym">$t_{test}$</span>：当前的实际测试温度，单位为 $^\circ C$</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="formula-block">
+            <p><strong>4. TDS (总溶解固体) 换算：</strong></p>
+            <div class="math-display">$$ TDS = K_{25} \times F_{TDS} $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$TDS$</span>：总溶解固体含量（Total Dissolved Solids），单位为 $ppm$ (即 $mg/L$)</li>
+                <li><span class="sym">$K_{25}$</span>：补偿到 25°C 时的基准电导率，单位为 $\mu S/cm$</li>
+                <li><span class="sym">$F_{TDS}$</span>：TDS 换算系数，通常根据溶液类型取 $0.50$（例如 NaCl 溶液）</li>
+              </ul>
+            </div>
+          </div>
+          
         </div>
       </div>
 
@@ -742,55 +872,96 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
       <!-- pH 公式 -->
       <div id="formula-ph" class="card glass chart-card full-height factor-formula">
         <div class="card-header justify-between">
-          <div class="flex-align-center"><span class="icon">📝</span><h2>pH 计算与 Nernst 温度补偿公式</h2></div>
+          <div class="flex-align-center"><span class="icon">📝</span><h2>PH-公式</h2></div>
         </div>
-        <div class="formula-container">
-          <div class="formula-section">
-            <h3>一、能斯特 (Nernst) 响应原理</h3>
-            
-            <div class="formula-card-sub">
-              <p><strong>1. 能斯特响应斜率 (S)：</strong> 玻璃电极的理论电位输出随温度而改变，其 Nernst 斜率 S 在不同温度 t<sub>test</sub> (&deg;C) 下为：</p>
-              <div class="math-block">S = (R &middot; T / F) &middot; ln(10) &middot; 1000 &approx; 0.198416 &times; (t<sub>test</sub> + 273.15)</div>
-              <div class="math-step success" id="ph-formula-slope-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ph-calc-slope-1">S = 0.198416 &times; (25.0 + 273.15)</span>
-                <span class="calc-result" id="ph-calc-slope-res">S = 59.16 mV/pH</span>
-              </div>
-            </div>
-
-            <div class="formula-card-sub">
-              <p><strong>2. 能斯特电势公式：</strong> 以 pH 7.00 (中性零电点) 为参考基准，等效输出电势 mV<sub>sim</sub> 与实际 pH<sub>test</sub> 的理论对应关系为：</p>
-              <div class="math-block">mV<sub>sim</sub> = (7 - pH<sub>test</sub>) &times; S</div>
-              <div class="math-step success" id="ph-formula-mv-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ph-calc-mv-1">mV = (7 - 7.00) &times; 59.16</span>
-                <span class="calc-result" id="ph-calc-mv-res">mV = 0.0 mV</span>
-              </div>
+        <div class="doc-format book-style">
+          <h3>一、能斯特 (Nernst) 响应原理</h3>
+          
+          <div class="formula-block">
+            <p><strong>1. 能斯特响应斜率 (S)：</strong> 玻璃电极的理论电位输出随温度而改变。</p>
+            <div class="math-display">$$ S = \frac{R \cdot T}{F} \cdot \ln(10) \cdot 1000 \approx 0.198416 \times (t_{test} + 273.15) $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$S$</span>：能斯特响应斜率 (Slope)，表示每变化 1 个 pH 单位对应的电势变化，单位为 $mV/pH$</li>
+                <li><span class="sym">$R$</span>：理想气体常数，约为 $8.314 \, J/(mol \cdot K)$</li>
+                <li><span class="sym">$T$</span>：绝对温度，即 $t_{test} + 273.15$，单位为开尔文 $K$</li>
+                <li><span class="sym">$F$</span>：法拉第常数，约为 $96485 \, C/mol$</li>
+                <li><span class="sym">$t_{test}$</span>：当前的测试温度，单位为 $^\circ C$</li>
+              </ul>
             </div>
           </div>
-
-          <div class="formula-section">
-            <h3>二、介质自身温度系数补偿</h3>
-
-            <div class="formula-card-sub">
-              <p><strong>3. 介质 pH 随温度的漂移公式：</strong> 溶液（特别是缓冲液）自身的 pH 随温度而改变。已知基准 25&deg;C 时的 pH 值为 pH<sub>ref</sub>，在其测试温度 t<sub>test</sub> 下的实际 pH<sub>test</sub> 为：</p>
-              <div class="math-block">pH<sub>test</sub> = pH<sub>ref</sub> + &alpha;<sub>ph</sub> &times; (t<sub>test</sub> - 25)</div>
-              <div class="math-step success" id="ph-formula-pht-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ph-calc-pht-1">pH<sub>test</sub> = 7.00 + (-0.005) &times; (25.0 - 25)</span>
-                <span class="calc-result" id="ph-calc-pht-res">pH<sub>test</sub> = 7.00 pH</span>
-              </div>
+          
+          <div class="formula-block">
+            <p><strong>2. 能斯特电势公式：</strong> 以 pH 7.00 为参考零电点。</p>
+            <div class="math-display">$$ mV_{sim} = (7.00 - pH_{test}) \times S $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$mV_{sim}$</span>：玻璃电极输出的等效电势，单位为 $mV$</li>
+                <li><span class="sym">$pH_{test}$</span>：当前温度下的实际 $pH$ 值</li>
+                <li><span class="sym">$S$</span>：当前温度下计算出的能斯特斜率，单位为 $mV/pH$</li>
+              </ul>
             </div>
-
-            <div class="formula-card-sub">
-              <p><strong>4. H<sup>+</sup> 离子浓度换算：</strong> 溶液的氢离子活度（浓度）与 pH 呈负对数关系：</p>
-              <div class="math-block">[H<sup>+</sup>] = 10<sup>-pH<sub>test</sub></sup></div>
-              <div class="math-step success" id="ph-formula-hconc-step">
-                <div class="calc-title">实时计算过程</div>
-                <span class="calc-line" id="ph-calc-hconc-1">[H<sup>+</sup>] = 10<sup>-7.00</sup></span>
-                <span class="calc-result" id="ph-calc-hconc-res">[H<sup>+</sup>] = 1.00e-7 mol/L</span>
-              </div>
+          </div>
+          
+          <h3>二、介质自身温度系数补偿</h3>
+          
+          <div class="formula-block">
+            <p><strong>3. 介质 pH 随温度的漂移公式：</strong> 溶液（如缓冲液）自身的 pH 会随温度改变。</p>
+            <div class="math-display">$$ pH_{test} = pH_{ref} + \alpha_{ph} \times (t_{test} - 25) $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$pH_{test}$</span>：测试温度 $t_{test}$ 下介质的实际 $pH$ 值</li>
+                <li><span class="sym">$pH_{ref}$</span>：介质在基准温度 (25°C) 时的 $pH$ 值</li>
+                <li><span class="sym">$\alpha_{ph}$</span>：介质本身的温度系数，表示每升高 1°C 其 $pH$ 的变化量，单位为 $pH/^\circ C$</li>
+                <li><span class="sym">$t_{test}$</span>：当前的实际测试温度，单位为 $^\circ C$</li>
+              </ul>
             </div>
+          </div>
+          
+          <div class="formula-block">
+            <p><strong>4. 氢离子浓度换算：</strong></p>
+            <div class="math-display">$$ [H^+] = 10^{-pH_{test}} $$</div>
+            <div class="math-legend">
+              <p>其中：</p>
+              <ul>
+                <li><span class="sym">$[H^+]$</span>：溶液中的氢离子活度（浓度），单位为 $mol/L$</li>
+                <li><span class="sym">$pH_{test}$</span>：溶液当前的 $pH$ 值</li>
+              </ul>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+      <!-- Modbus 解析结果 (右侧) -->
+      <div id="chart-modbus" class="card glass chart-card full-height factor-chart" style="overflow-y: auto;">
+        <div class="card-header justify-between">
+          <div class="flex-align-center"><span class="icon">🧮</span><h2>Modbus 报文解析结果</h2></div>
+        </div>
+        <div class="modbus-container" style="padding: 24px;">
+          <div id="modbus-placeholder" style="text-align: center; color: var(--text-secondary); padding: 60px 0; font-size: 15px;">
+            👈 请在左侧功能栏输入报文并点击“开始解析”
+          </div>
+          <div id="modbus-tx-result" class="modbus-result"></div>
+          <div id="modbus-rx-result" class="modbus-result"></div>
+          <div id="modbus-data-result" class="modbus-result">
+            <h3 style="color:var(--color-primary); margin-bottom:12px;">多字节数据提取与转换结果</h3>
+            <table class="modbus-details-table" style="font-size: 13px; margin-top: 4px;">
+              <thead>
+                <tr>
+                  <th>字节序 (Byte Order)</th>
+                  <th>整数 (Int)</th>
+                  <th>无符号 (UInt)</th>
+                  <th>浮点 (Float)</th>
+                </tr>
+              </thead>
+              <tbody id="modbus-data-results">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);">等待在左侧输入 2 字节或 4 字节数据...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -798,6 +969,14 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
 
     <!-- 导航栏 -->
     <nav class="card factor-nav">
+      <div style="font-size: 13.5px; font-weight: bold; color: var(--text-secondary); border-bottom: 1px dashed var(--border-glass); width: 90%; text-align: center; padding-bottom: 8px; margin-bottom: -4px; letter-spacing: 1px;">功能列表</div>
+      <!-- Modbus 组 -->
+      <div class="nav-group">
+        <button type="button" class="factor-nav-btn modbus-nav-btn" style="width: 136px;" data-factor="modbus" data-mode="sim" title="Modbus数据解析">
+          <span class="icon">🧮</span>
+          <span class="label">Modbus数据解析</span>
+        </button>
+      </div>
       <!-- 电导率组 -->
       <div class="nav-group">
         <button type="button" class="factor-nav-btn formula-nav-btn" data-factor="ec" data-mode="formula" title="查看电导率公式">
@@ -900,10 +1079,7 @@ var el = {
   phChartModeButtons: document.querySelectorAll('.ph-chart-mode-btn'),
   phChartTitle: $('ph-chart-title'), phChartLegend: $('ph-chart-legend'),
   factorNavButtons: document.querySelectorAll('.factor-nav-btn'),
-  themeToggle: $('theme-toggle'),
-  exportConfig: $('export-config'),
-  importConfig: $('import-config'),
-  importFileInput: $('import-file-input')
+  themeToggle: $('theme-toggle')
 };
 var conductivityChart = null, ecSignalChart = null, phChart = null, phSignalChart = null;
 var lastECData = null, lastPHData = null;
@@ -1288,6 +1464,8 @@ function updateFormulaCalcs() {
 
 function saveState() {
   try {
+    var consent = localStorage.getItem('cookie_consent_choice');
+    if (consent === 'declined') return;
     state.theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
     localStorage.setItem('sensor_calib_state', JSON.stringify(state));
   } catch (e) {
@@ -1378,6 +1556,9 @@ function switchFactor(id, mode) {
   mode = mode || state.viewMode || 'sim';
   state.activeFactor = id;
   state.viewMode = mode;
+  
+  document.body.classList.remove('theme-ec', 'theme-ph', 'theme-modbus');
+  document.body.classList.add('theme-' + id);
 
   el.factorNavButtons.forEach(function(b){
     var bFactor = b.getAttribute('data-factor');
@@ -1467,55 +1648,359 @@ el.themeToggle.addEventListener('click',function(){
   redrawChartsOnly();
 });
 
-if (el.exportConfig) {
-  el.exportConfig.addEventListener('click', function() {
-    state.theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
-    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-    var dlAnchorElem = document.createElement('a');
-    dlAnchorElem.setAttribute("href", dataStr);
-    dlAnchorElem.setAttribute("download", "sensor_calibration_config.json");
-    dlAnchorElem.click();
+
+/* ========== Modbus 解析逻辑 ========== */
+var modbusEl = {
+  proto: $('modbus-protocol-select'),
+  txInput: $('modbus-tx-input'), txBtn: $('btn-parse-tx'), txRes: $('modbus-tx-result'),
+  rxInput: $('modbus-rx-input'), rxBtn: $('btn-parse-rx'), rxRes: $('modbus-rx-result')
+};
+
+function cleanHexStr(str) { return str.replace(/[^0-9A-Fa-f]/g, '').toUpperCase(); }
+function removeLogPrefix(str) {
+  str = str.trim();
+  // 匹配类似 Tx:000004- 或 [RX] - 这样的前缀，直到第一个16进制字符前
+  return str.replace(/^.*?(?:tx|rx|send|recv|发送|接收)[^0-9a-f]*\d*[^0-9a-f]+/i, '').trim();
+}
+function hex2(num) { return ('00'+num.toString(16)).slice(-2).toUpperCase(); }
+function calcCrc16(bytes) {
+  var crc = 0xFFFF;
+  for (var i=0; i<bytes.length; i++) {
+    crc ^= bytes[i];
+    for (var j=0; j<8; j++) {
+      if ((crc & 1) !== 0) { crc = (crc >> 1) ^ 0xA001; }
+      else { crc = crc >> 1; }
+    }
+  }
+  return [crc & 0xFF, (crc >> 8) & 0xFF];
+}
+
+// 格式化数据区 (Data Formatter)
+function formatDataPayload(bytes) {
+  var hex = '', ascii = '', decArr = [];
+  var isPrintable = function(c) { return c>=32 && c<=126; };
+  for(var i=0; i<bytes.length; i++) {
+    hex += hex2(bytes[i]) + ' ';
+    ascii += isPrintable(bytes[i]) ? String.fromCharCode(bytes[i]) : '.';
+    decArr.push(bytes[i]);
+  }
+  
+  var floatStr = 'N/A';
+  if(bytes.length === 4) {
+    // 解析 32位 IEEE754 单精度浮点 (假设大端序)
+    var buf = new ArrayBuffer(4);
+    var view = new DataView(buf);
+    view.setUint8(0, bytes[0]); view.setUint8(1, bytes[1]); view.setUint8(2, bytes[2]); view.setUint8(3, bytes[3]);
+    floatStr = view.getFloat32(0, false).toPrecision(7);
+  }
+  
+  var uint16Str = '';
+  if(bytes.length >= 2 && bytes.length % 2 === 0) {
+    var u16s = [];
+    for(var j=0; j<bytes.length; j+=2) {
+      u16s.push((bytes[j]<<8) | bytes[j+1]);
+    }
+    uint16Str = u16s.join(', ');
+  } else {
+    uint16Str = decArr.join(' ');
+  }
+
+  var html = '<div style="margin-top:8px; font-size:12px; color:var(--text-secondary);">⬇ 包含 4 种格式的自动转换视图 ⬇</div>';
+  html += '<div class="data-format-grid">';
+  html += '<div class="data-fmt-box"><div class="fmt-lbl">Hex (十六进制)</div><div class="fmt-val">' + hex.trim() + '</div></div>';
+  html += '<div class="data-fmt-box"><div class="fmt-lbl">Decimal (十进制)</div><div class="fmt-val">' + uint16Str + '</div></div>';
+  html += '<div class="data-fmt-box"><div class="fmt-lbl">Float32 (浮点)</div><div class="fmt-val">' + floatStr + '</div></div>';
+  html += '<div class="data-fmt-box"><div class="fmt-lbl">ASCII (字符)</div><div class="fmt-val">' + ascii.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</div></div>';
+  html += '</div>';
+  return html;
+}
+
+function renderModbusResult(container, blocks, tableRows) {
+  var html = '<div class="byte-blocks">';
+  blocks.forEach(function(b) {
+    var titleAttr = b.desc ? ' title="' + b.desc + '"' : '';
+    html += '<div class="byte-block ' + b.type + '"' + titleAttr + '><div class="hex">' + b.hex + '</div><div class="desc">' + b.label + '</div></div>';
+  });
+  html += '</div><table class="modbus-details-table" style="table-layout: fixed; width: 100%;"><tr><th style="width: 30%; position: relative;">字节数据<div class="col-resizer" title="左右拖动调整宽度"></div></th><th>含义描述</th></tr>';
+  tableRows.forEach(function(r) {
+    html += '<tr><td>' + r.hex + '</td><td>' + r.desc + '</td></tr>';
+  });
+  html += '</table>';
+  container.innerHTML = html;
+  container.classList.add('active');
+}
+
+function parseModbusMessage(hexStr, isTx) {
+  var isTcp = modbusEl.proto.value === 'tcp';
+  if(hexStr.length < (isTcp ? 14 : 8) || hexStr.length % 2 !== 0) {
+    return { err: '❌ 报文格式错误或长度不足。请输入完整的 Hex 字符串。' };
+  }
+  var bytes = []; for(var i=0; i<hexStr.length; i+=2) bytes.push(parseInt(hexStr.substr(i,2), 16));
+  
+  var blocks = []; var rows = [];
+  var pduOffset = 0;
+  
+  // TCP MBAP Header
+  if (isTcp) {
+    blocks.push({type:'addr', hex:hex2(bytes[0]), label:'事务高', desc:'Trans ID Hi'});
+    blocks.push({type:'addr', hex:hex2(bytes[1]), label:'事务低', desc:'Trans ID Lo'});
+    rows.push({hex: hex2(bytes[0])+' '+hex2(bytes[1]), desc: '事务标识符 (Transaction ID)'});
+    
+    blocks.push({type:'slave', hex:hex2(bytes[2]), label:'协议高', desc:'Proto ID Hi'});
+    blocks.push({type:'slave', hex:hex2(bytes[3]), label:'协议低', desc:'Proto ID Lo'});
+    rows.push({hex: hex2(bytes[2])+' '+hex2(bytes[3]), desc: '协议标识符 (Protocol ID, 常为 00 00)'});
+    
+    blocks.push({type:'addr', hex:hex2(bytes[4]), label:'长度高', desc:'Len Hi'});
+    blocks.push({type:'addr', hex:hex2(bytes[5]), label:'长度低', desc:'Len Lo'});
+    var lenVal = (bytes[4]<<8) | bytes[5];
+    rows.push({hex: hex2(bytes[4])+' '+hex2(bytes[5]), desc: '后续字节长度 (Length): ' + lenVal + ' 字节'});
+    pduOffset = 6;
+  }
+  
+  var slaveId = bytes[pduOffset];
+  blocks.push({type:'slave', hex:hex2(slaveId), label:'单元/地址', desc:'Slave/Unit ID'});
+  rows.push({hex: hex2(slaveId), desc: (isTcp ? '单元标识符 (Unit ID): ' : '从机设备地址 (Slave ID): ') + slaveId});
+  
+  var funcCode = bytes[pduOffset + 1];
+  var isError = (funcCode & 0x80) !== 0;
+  var baseFunc = funcCode & 0x7F;
+  blocks.push({type:(isError ? 'error' : 'func'), hex:hex2(funcCode), label:'功能码', desc:'Function Code'});
+  
+  var funcName = '';
+  if(baseFunc===1) funcName = '读线圈'; else if(baseFunc===2) funcName = '读离散输入';
+  else if(baseFunc===3) funcName = '读保持寄存器'; else if(baseFunc===4) funcName = '读输入寄存器';
+  else if(baseFunc===5) funcName = '写单个线圈'; else if(baseFunc===6) funcName = '写单个寄存器';
+  else if(baseFunc===15) funcName = '写多个线圈'; else if(baseFunc===16) funcName = '写多个寄存器';
+  else funcName = '未知功能';
+  
+  rows.push({hex: hex2(funcCode), desc: '功能码: 0x' + hex2(funcCode) + ' (' + funcName + ')' + (isError ? ' [异常响应]' : '')});
+  
+  var dataEnd = isTcp ? bytes.length : bytes.length - 2;
+  var pduDataLen = dataEnd - (pduOffset + 2);
+  
+  if(isError) {
+    if(pduOffset + 2 < dataEnd) {
+      blocks.push({type:'error', hex:hex2(bytes[pduOffset+2]), label:'异常码', desc:'Exception Code'});
+      var eDesc = '未知错误';
+      if(bytes[pduOffset+2]===1) eDesc = '非法功能码';
+      else if(bytes[pduOffset+2]===2) eDesc = '非法数据地址';
+      else if(bytes[pduOffset+2]===3) eDesc = '非法数据值';
+      rows.push({hex: hex2(bytes[pduOffset+2]), desc: '异常码: 0x' + hex2(bytes[pduOffset+2]) + ' (' + eDesc + ')'});
+    }
+  } else if (isTx) {
+    // --- TX 请求报文结构解析 ---
+    if(baseFunc>=1 && baseFunc<=6) {
+      var addrHex = hex2(bytes[pduOffset+2]) + ' ' + hex2(bytes[pduOffset+3]);
+      var addrVal = (bytes[pduOffset+2]<<8) | bytes[pduOffset+3];
+      blocks.push({type:'addr', hex:hex2(bytes[pduOffset+2]), label:'起始高', desc:'Addr Hi'});
+      blocks.push({type:'addr', hex:hex2(bytes[pduOffset+3]), label:'起始低', desc:'Addr Lo'});
+      rows.push({hex: addrHex, desc: '寄存器起始地址: 0x' + hex2(bytes[pduOffset+2])+hex2(bytes[pduOffset+3]) + ' (' + addrVal + ')'});
+      
+      var valHex = hex2(bytes[pduOffset+4]) + ' ' + hex2(bytes[pduOffset+5]);
+      var valVal = (bytes[pduOffset+4]<<8) | bytes[pduOffset+5];
+      blocks.push({type:'data', hex:hex2(bytes[pduOffset+4]), label:'量/值高', desc:'Count/Val Hi'});
+      blocks.push({type:'data', hex:hex2(bytes[pduOffset+5]), label:'量/值低', desc:'Count/Val Lo'});
+      if(baseFunc<=4) {
+        rows.push({hex: valHex, desc: '请求读取数量: ' + valVal});
+      } else {
+        rows.push({hex: valHex, desc: '写入单一值: ' + valVal});
+      }
+    } else if(baseFunc===15 || baseFunc===16) {
+      var addrHex = hex2(bytes[pduOffset+2]) + ' ' + hex2(bytes[pduOffset+3]);
+      var addrVal = (bytes[pduOffset+2]<<8) | bytes[pduOffset+3];
+      blocks.push({type:'addr', hex:hex2(bytes[pduOffset+2]), label:'起始高', desc:'Addr Hi'});
+      blocks.push({type:'addr', hex:hex2(bytes[pduOffset+3]), label:'起始低', desc:'Addr Lo'});
+      rows.push({hex: addrHex, desc: '寄存器起始地址: ' + addrVal});
+      
+      var valHex = hex2(bytes[pduOffset+4]) + ' ' + hex2(bytes[pduOffset+5]);
+      var valVal = (bytes[pduOffset+4]<<8) | bytes[pduOffset+5];
+      blocks.push({type:'data', hex:hex2(bytes[pduOffset+4]), label:'量高', desc:'Count Hi'});
+      blocks.push({type:'data', hex:hex2(bytes[pduOffset+5]), label:'量低', desc:'Count Lo'});
+      rows.push({hex: valHex, desc: '请求写入数量: ' + valVal});
+      
+      var bCount = bytes[pduOffset+6];
+      blocks.push({type:'data', hex:hex2(bCount), label:'字节数', desc:'Byte Count'});
+      rows.push({hex: hex2(bCount), desc: '跟随数据字节数: ' + bCount});
+      
+      var payloadBytes = bytes.slice(pduOffset+7, dataEnd);
+      var pHex = '';
+      for(var k=0; k<payloadBytes.length; k++) {
+        blocks.push({type:'data', hex:hex2(payloadBytes[k]), label:'数据', desc:'Data'});
+        pHex += hex2(payloadBytes[k]) + ' ';
+      }
+      rows.push({hex: pHex.trim(), desc: '写入的数据负载 (Payload)' + formatDataPayload(payloadBytes)});
+    } else {
+      var payloadBytes = bytes.slice(pduOffset+2, dataEnd);
+      var pHex = '';
+      for(var k=0; k<payloadBytes.length; k++) {
+        blocks.push({type:'data', hex:hex2(payloadBytes[k]), label:'数据', desc:'Data Payload'});
+        pHex += hex2(payloadBytes[k]) + ' ';
+      }
+      rows.push({hex: pHex.trim(), desc: '写入的数据负载' + formatDataPayload(payloadBytes)});
+    }
+  } else {
+    // --- RX 响应报文结构解析 ---
+    if(baseFunc>=1 && baseFunc<=4) {
+      var bCount = bytes[pduOffset+2];
+      blocks.push({type:'addr', hex:hex2(bCount), label:'字节数', desc:'Byte Count'});
+      rows.push({hex: hex2(bCount), desc: '跟随数据字节数: ' + bCount});
+      
+      var payloadBytes = bytes.slice(pduOffset+3, dataEnd);
+      var pHex = '';
+      for(var k=0; k<payloadBytes.length; k++) {
+        blocks.push({type:'data', hex:hex2(payloadBytes[k]), label:'数据', desc:'Data'});
+        pHex += hex2(payloadBytes[k]) + ' ';
+      }
+      rows.push({hex: pHex.trim(), desc: '读取到的数据负载 (Payload)'});
+    } else if(baseFunc===5 || baseFunc===6 || baseFunc===15 || baseFunc===16) {
+      var addrHex = hex2(bytes[pduOffset+2]) + ' ' + hex2(bytes[pduOffset+3]);
+      var valHex = hex2(bytes[pduOffset+4]) + ' ' + hex2(bytes[pduOffset+5]);
+      blocks.push({type:'addr', hex:hex2(bytes[pduOffset+2]), label:'起始高', desc:'Addr Hi'});
+      blocks.push({type:'addr', hex:hex2(bytes[pduOffset+3]), label:'起始低', desc:'Addr Lo'});
+      blocks.push({type:'data', hex:hex2(bytes[pduOffset+4]), label:'量/值高', desc:'Count/Val Hi'});
+      blocks.push({type:'data', hex:hex2(bytes[pduOffset+5]), label:'量/值低', desc:'Count/Val Lo'});
+      rows.push({hex: addrHex, desc: '确认寄存器起始地址: 0x' + hex2(bytes[pduOffset+2])+hex2(bytes[pduOffset+3])});
+      rows.push({hex: valHex, desc: '确认写入数值/数量: 0x' + hex2(bytes[pduOffset+4])+hex2(bytes[pduOffset+5])});
+    } else {
+      var payloadBytes = bytes.slice(pduOffset+2, dataEnd);
+      var pHex = '';
+      for(var k=0; k<payloadBytes.length; k++) {
+        blocks.push({type:'data', hex:hex2(payloadBytes[k]), label:'数据', desc:'Data Payload'});
+        pHex += hex2(payloadBytes[k]) + ' ';
+      }
+      rows.push({hex: pHex.trim(), desc: '返回的数据负载'});
+    }
+  }
+  
+  if(!isTcp) {
+    if(dataEnd + 1 < bytes.length) {
+      var expCrc = calcCrc16(bytes.slice(0, dataEnd));
+      var rcvCrc = [bytes[dataEnd], bytes[dataEnd+1]];
+      var crcOk = (expCrc[0]===rcvCrc[0] && expCrc[1]===rcvCrc[1]);
+      
+      var crcBlock = crcOk ? 'crc' : 'error';
+      blocks.push({type:crcBlock, hex:hex2(rcvCrc[0]), label:'校验低', desc:'CRC Lo'});
+      blocks.push({type:crcBlock, hex:hex2(rcvCrc[1]), label:'校验高', desc:'CRC Hi'});
+      rows.push({hex: hex2(rcvCrc[0])+' '+hex2(rcvCrc[1]), desc: 'CRC-16 校验码: ' + (crcOk ? '校验通过 ✅' : '校验失败 ❌ (预期: '+hex2(expCrc[0])+' '+hex2(expCrc[1])+')')});
+    } else {
+      rows.push({hex: 'MISSING', desc: '⚠️ 未找到 CRC 校验码 (报文长度不足)'});
+    }
+  }
+  
+  return { blocks: blocks, rows: rows };
+}
+
+if($('btn-parse-data')) {
+  $('btn-parse-data').addEventListener('click', function() {
+    if($('modbus-placeholder')) $('modbus-placeholder').style.display = 'none';
+    if(modbusEl.txRes) { modbusEl.txRes.innerHTML = ''; modbusEl.txRes.classList.remove('active'); }
+    if(modbusEl.rxRes) { modbusEl.rxRes.innerHTML = ''; modbusEl.rxRes.classList.remove('active'); }
+    if($('modbus-data-result')) $('modbus-data-result').classList.add('active');
+    
+    var raw = $('modbus-data-input').value.replace(/[^0-9A-Fa-f]/g, '');
+    var tbody = $('modbus-data-results');
+    if(raw.length !== 4 && raw.length !== 8) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">请完整输入 2 字节 (4个字符) 或 4 字节 (8个字符) 的 Hex 数据</td></tr>';
+      return;
+    }
+    var is32 = raw.length === 8;
+    var b = [];
+    for(var i=0; i<raw.length; i+=2) b.push(parseInt(raw.substr(i,2), 16));
+    
+    var orders = is32 ? [
+      {name: '大端 (ABCD)', idx: [0,1,2,3]},
+      {name: '大端交错 (CDAB)', idx: [2,3,0,1]},
+      {name: '小端 (DCBA)', idx: [3,2,1,0]},
+      {name: '小端交错 (BADC)', idx: [1,0,3,2]}
+    ] : [
+      {name: '大端 (AB)', idx: [0,1]},
+      {name: '小端 (BA)', idx: [1,0]}
+    ];
+    
+    var html = '';
+    orders.forEach(function(ord) {
+      var buf = new ArrayBuffer(is32 ? 4 : 2);
+      var view = new DataView(buf);
+      for(var i=0; i<ord.idx.length; i++) view.setUint8(i, b[ord.idx[i]]);
+      
+      var intVal = is32 ? view.getInt32(0, false) : view.getInt16(0, false);
+      var uintVal = is32 ? view.getUint32(0, false) : view.getUint16(0, false);
+      var floatVal = is32 ? view.getFloat32(0, false).toPrecision(7) : 'N/A';
+      
+      html += '<tr><td style="font-weight:600;color:var(--color-primary);">' + ord.name + '</td><td>' + intVal + '</td><td>' + uintVal + '</td><td>' + floatVal + '</td></tr>';
+    });
+    tbody.innerHTML = html;
   });
 }
 
-if (el.importConfig && el.importFileInput) {
-  el.importConfig.addEventListener('click', function() {
-    el.importFileInput.value = ''; // Reset file input
-    el.importFileInput.click();
-  });
-  el.importFileInput.addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(evt) {
-      try {
-        var parsed = JSON.parse(evt.target.result);
-        for (var k in parsed) {
-          if (parsed.hasOwnProperty(k) && state.hasOwnProperty(k)) {
-            state[k] = parsed[k];
-          }
-        }
-        syncStateToDOM();
-        
-        var initTheme = state.theme || 'light';
-        var b = document.body;
-        if (initTheme === 'dark') {
-          b.classList.remove('light-theme'); b.classList.add('dark-theme');
-          el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-        } else {
-          b.classList.remove('dark-theme'); b.classList.add('light-theme');
-          el.themeToggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-        }
-        switchFactor(state.activeFactor, state.viewMode);
-        saveState();
-        alert('配置导入成功！');
-      } catch (err) {
-        alert('解析配置文件失败，请确保是合法的 JSON 配置。');
-      }
-    };
-    reader.readAsText(file);
+if(modbusEl.txBtn) {
+  modbusEl.txBtn.addEventListener('click', function(){
+    if($('modbus-placeholder')) $('modbus-placeholder').style.display = 'none';
+    modbusEl.rxRes.innerHTML = ''; modbusEl.rxRes.classList.remove('active');
+    if($('modbus-data-result')) $('modbus-data-result').classList.remove('active');
+    
+    var rawInput = removeLogPrefix(modbusEl.txInput.value);
+    var hexStr = cleanHexStr(rawInput);
+    var res = parseModbusMessage(hexStr, true);
+    if(res.err) {
+      modbusEl.txRes.innerHTML = '<h3 style="color:var(--color-primary); margin-bottom:12px;">TX 发送报文解析</h3><div class="modbus-error-text">' + res.err + '</div>';
+      modbusEl.txRes.classList.add('active');
+    } else {
+      renderModbusResult(modbusEl.txRes, res.blocks, res.rows);
+      modbusEl.txRes.innerHTML = '<h3 style="color:var(--color-primary); margin-bottom:12px;">TX 发送报文解析 (Request)</h3>' + modbusEl.txRes.innerHTML;
+    }
   });
 }
+
+if(modbusEl.rxBtn) {
+  modbusEl.rxBtn.addEventListener('click', function(){
+    if($('modbus-placeholder')) $('modbus-placeholder').style.display = 'none';
+    modbusEl.txRes.innerHTML = ''; modbusEl.txRes.classList.remove('active');
+    if($('modbus-data-result')) $('modbus-data-result').classList.remove('active');
+    
+    var rawInput = removeLogPrefix(modbusEl.rxInput.value);
+    var hexStr = cleanHexStr(rawInput);
+    var res = parseModbusMessage(hexStr, false);
+    if(res.err) {
+      modbusEl.rxRes.innerHTML = '<h3 style="color:var(--color-primary); margin-bottom:12px;">RX 接收报文解析</h3><div class="modbus-error-text">' + res.err + '</div>';
+      modbusEl.rxRes.classList.add('active');
+    } else {
+      renderModbusResult(modbusEl.rxRes, res.blocks, res.rows);
+      modbusEl.rxRes.innerHTML = '<h3 style="color:var(--color-primary); margin-bottom:12px;">RX 接收报文解析 (Response)</h3>' + modbusEl.rxRes.innerHTML;
+    }
+  });
+}
+
+/* Modbus 表格拖拽调节列宽逻辑 */
+document.addEventListener('mousedown', function(e) {
+  if(e.target.classList.contains('col-resizer')) {
+    e.preventDefault();
+    var resizer = e.target;
+    var th = resizer.parentElement;
+    var startX = e.pageX;
+    var startWidth = th.offsetWidth;
+    var table = th.closest('table');
+    var tableWidth = table.offsetWidth;
+    
+    resizer.classList.add('dragging');
+    
+    function onMouseMove(moveEvent) {
+      var newWidth = startWidth + (moveEvent.pageX - startX);
+      if (newWidth > 50 && newWidth < tableWidth - 100) {
+        th.style.width = newWidth + 'px';
+      }
+    }
+    
+    function onMouseUp() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+});
 
 /* ---- 初始化 ---- */
 loadSavedState();
