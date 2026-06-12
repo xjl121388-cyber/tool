@@ -1049,7 +1049,8 @@ var state = {
   phAlpha: -0.005, phSimMv: 0.0, phSimRef: 7.00, phSimMode: 'ref',
   phTestTemp: 25.0, phRefTemp: 25.0, phChartMode: 'ph',
   phTempStart: 0, phTempEnd: 100, phTempStep: 1,
-  modbusTx: '', modbusRx: '', modbusData: '', modbusProtocol: 'rtu'
+  modbusTx: '', modbusRx: '', modbusData: '', modbusProtocol: 'rtu',
+  lastModbusActivePanel: ''
 };
 
 /* ---- DOM 缓存 ---- */
@@ -1516,11 +1517,23 @@ function syncStateToDOM() {
       b.classList.toggle('active', b.getAttribute('data-mode') === state.chartMode);
     });
   }
+  if (el.chartModeButtons) {
+    el.chartModeButtons.forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-mode') === state.chartMode);
+    });
+  }
   if (el.phChartModeButtons) {
     el.phChartModeButtons.forEach(function(b) {
       b.classList.toggle('active', b.getAttribute('data-mode') === state.phChartMode);
     });
   }
+
+  // Restore Modbus Parse Results
+  setTimeout(function() {
+    if (state.lastModbusActivePanel === 'tx' && modbusEl.txBtn && state.modbusTx) modbusEl.txBtn.click();
+    else if (state.lastModbusActivePanel === 'rx' && modbusEl.rxBtn && state.modbusRx) modbusEl.rxBtn.click();
+    else if (state.lastModbusActivePanel === 'data' && $('btn-parse-data') && state.modbusData) $('btn-parse-data').click();
+  }, 100);
 
   if (el.phAlphaInput) el.phAlphaInput.value = state.phAlpha.toFixed(3);
   if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(1);
@@ -1924,6 +1937,7 @@ function parseModbusMessage(hexStr, isTx) {
 
 if($('btn-parse-data')) {
   $('btn-parse-data').addEventListener('click', function() {
+    state.lastModbusActivePanel = 'data'; saveState();
     if($('modbus-placeholder')) $('modbus-placeholder').style.display = 'none';
     if(modbusEl.txRes) { modbusEl.txRes.innerHTML = ''; modbusEl.txRes.classList.remove('active'); }
     if(modbusEl.rxRes) { modbusEl.rxRes.innerHTML = ''; modbusEl.rxRes.classList.remove('active'); }
@@ -1967,6 +1981,7 @@ if($('btn-parse-data')) {
 
 if(modbusEl.txBtn) {
   modbusEl.txBtn.addEventListener('click', function(){
+    state.lastModbusActivePanel = 'tx'; saveState();
     if($('modbus-placeholder')) $('modbus-placeholder').style.display = 'none';
     modbusEl.rxRes.innerHTML = ''; modbusEl.rxRes.classList.remove('active');
     if($('modbus-data-result')) $('modbus-data-result').classList.remove('active');
@@ -1986,6 +2001,7 @@ if(modbusEl.txBtn) {
 
 if(modbusEl.rxBtn) {
   modbusEl.rxBtn.addEventListener('click', function(){
+    state.lastModbusActivePanel = 'rx'; saveState();
     if($('modbus-placeholder')) $('modbus-placeholder').style.display = 'none';
     modbusEl.txRes.innerHTML = ''; modbusEl.txRes.classList.remove('active');
     if($('modbus-data-result')) $('modbus-data-result').classList.remove('active');
