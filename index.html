@@ -1048,7 +1048,8 @@ var state = {
   tempStart: 0, tempEnd: 100, tempStep: 1, chartMode: 'cond',
   phAlpha: -0.005, phSimMv: 0.0, phSimRef: 7.00, phSimMode: 'ref',
   phTestTemp: 25.0, phRefTemp: 25.0, phChartMode: 'ph',
-  phTempStart: 0, phTempEnd: 100, phTempStep: 1
+  phTempStart: 0, phTempEnd: 100, phTempStep: 1,
+  modbusTx: '', modbusRx: '', modbusData: '', modbusProtocol: 'rtu'
 };
 
 /* ---- DOM 缓存 ---- */
@@ -1505,6 +1506,11 @@ function syncStateToDOM() {
   if (el.phSimRefInput) el.phSimRefInput.value = state.phSimRef.toFixed(2);
   if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
 
+  if ($('modbus-tx-input')) $('modbus-tx-input').value = state.modbusTx || '';
+  if ($('modbus-rx-input')) $('modbus-rx-input').value = state.modbusRx || '';
+  if ($('modbus-data-input')) $('modbus-data-input').value = state.modbusData || '';
+  if ($('modbus-protocol-select')) $('modbus-protocol-select').value = state.modbusProtocol || 'rtu';
+
   var syncPresetDropdown = function(inp, sel, prec) {
     if (!inp || !sel) return;
     var n = parseFloat(inp.value);
@@ -1611,6 +1617,11 @@ el.simCondUnitSelect.addEventListener('change',function(e){state.simMode='cond';
 el.phSimMvInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v))return;state.phSimMode='mv';state.phSimMv=v;globalUpdate();});
 el.phSimMvPresetSelect.addEventListener('change',function(e){var v=e.target.value;if(v!=='custom'){var n=parseFloat(v);el.phSimMvInput.value=n.toFixed(1);state.phSimMode='mv';state.phSimMv=n;globalUpdate();}});
 el.phSimRefInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<-2||v>16)return;state.phSimMode='ref';state.phSimRef=v;globalUpdate();});
+
+if($('modbus-tx-input')) $('modbus-tx-input').addEventListener('input', function(e) { state.modbusTx = e.target.value; saveState(); });
+if($('modbus-rx-input')) $('modbus-rx-input').addEventListener('input', function(e) { state.modbusRx = e.target.value; saveState(); });
+if($('modbus-data-input')) $('modbus-data-input').addEventListener('input', function(e) { state.modbusData = e.target.value; saveState(); });
+if($('modbus-protocol-select')) $('modbus-protocol-select').addEventListener('change', function(e) { state.modbusProtocol = e.target.value; saveState(); });
 
 el.chartModeButtons.forEach(function(btn){
   btn.addEventListener('click',function(e){
