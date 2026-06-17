@@ -661,6 +661,18 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
         <div class="card glass">
           <div class="card-header"><span class="icon">&#9881;</span><h2>pH 标定参数配置</h2></div>
           <!-- pH Alpha removed to strictly follow Nernst Equation -->
+          
+          <div class="form-group" style="padding-bottom: 8px; border-bottom: 1px dashed rgba(var(--color-primary-rgb), 0.2);">
+            <div class="label-wrapper"><label>仿真锁定目标 (Simulation Lock)</label></div>
+            <div class="radio-group" style="display: flex; gap: 16px; margin-top: 6px; font-size: 13px;">
+              <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:var(--text-secondary);">
+                <input type="radio" name="ph_sim_mode" value="ref" checked> 🔒 锁定真实 pH
+              </label>
+              <label style="cursor:pointer; display:flex; align-items:center; gap:4px; color:var(--text-secondary);">
+                <input type="radio" name="ph_sim_mode" value="mv"> 🔒 锁定电信号 mV
+              </label>
+            </div>
+          </div>
           <div class="form-group">
             <div class="label-wrapper"><label>等效电势模拟 (mV<sub>sim</sub>)</label><span class="static-hint" id="ph-mv-calc-ph" style="background:rgba(48,209,88,0.12);color:var(--color-success);">7.00 pH</span></div>
             <div class="input-with-select">
@@ -1529,6 +1541,15 @@ function syncStateToDOM() {
     else if (state.lastModbusActivePanel === 'data' && $('btn-parse-data') && state.modbusData) $('btn-parse-data').click();
   }, 100);
 
+  var phModeRadios = document.getElementsByName('ph_sim_mode');
+  if (phModeRadios) {
+    for(var i=0; i<phModeRadios.length; i++){
+      if(phModeRadios[i].value === state.phSimMode) phModeRadios[i].checked = true;
+    }
+  }
+  if (el.phSimMvInput) el.phSimMvInput.parentElement.parentElement.style.opacity = state.phSimMode === 'mv' ? '1' : '0.5';
+  if (el.phSimRefInput) el.phSimRefInput.parentElement.parentElement.style.opacity = state.phSimMode === 'ref' ? '1' : '0.5';
+
   if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(1);
   if (el.phSimRefInput) el.phSimRefInput.value = state.phSimRef.toFixed(2);
   if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
@@ -1632,16 +1653,25 @@ bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3);
 bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2);
 bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1);
 bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
-bindPreset(el.phSimRefInput,el.phSimRefPresetSelect,'phSimRef',2);
 bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
 
 el.simResistanceInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<=0.001)return;state.simMode='res';state.simResistance=v;globalUpdate();});
 el.simResUnitSelect.addEventListener('change',function(e){state.simMode='res';state.simResUnit=e.target.value;globalUpdate();});
 el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;globalUpdate();});
-el.simCondUnitSelect.addEventListener('change',function(e){state.simMode='cond';state.simCondInputUnit=e.target.value;globalUpdate();});
 el.phSimMvInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v))return;state.phSimMode='mv';state.phSimMv=v;globalUpdate();});
 el.phSimMvPresetSelect.addEventListener('change',function(e){var v=e.target.value;if(v!=='custom'){var n=parseFloat(v);el.phSimMvInput.value=n.toFixed(1);state.phSimMode='mv';state.phSimMv=n;globalUpdate();}});
 el.phSimRefInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<-2||v>16)return;state.phSimMode='ref';state.phSimRef=v;globalUpdate();});
+el.phSimRefPresetSelect.addEventListener('change',function(e){var v=e.target.value;if(v!=='custom'){var n=parseFloat(v);el.phSimRefInput.value=n.toFixed(2);state.phSimMode='ref';state.phSimRef=n;globalUpdate();}});
+
+var phModeRadios = document.getElementsByName('ph_sim_mode');
+for(var i=0; i<phModeRadios.length; i++) {
+  phModeRadios[i].addEventListener('change', function(e) {
+    if(e.target.checked) {
+      state.phSimMode = e.target.value;
+      globalUpdate();
+    }
+  });
+}
 
 if($('modbus-tx-input')) $('modbus-tx-input').addEventListener('input', function(e) { state.modbusTx = e.target.value; saveState(); });
 if($('modbus-rx-input')) $('modbus-rx-input').addEventListener('input', function(e) { state.modbusRx = e.target.value; saveState(); });
