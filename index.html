@@ -1187,10 +1187,18 @@ function genPHData() {
   if(state.phTestTemp>=state.phTempStart&&state.phTestTemp<=state.phTempEnd&&!pts.includes(state.phTestTemp)) pts.push(state.phTestTemp);
   pts=[...new Set(pts)];pts.sort(function(a,b){return a-b;});
   pts.forEach(function(t){
-    var pH=state.phSimRef;
-    var hc=Math.pow(10,-pH);
     var sl=0.198416*(t+273.15);
-    data.push({temp:t,ph:parseFloat(pH.toFixed(3)),hconc:hc,mV:parseFloat(((7-pH)*sl).toFixed(1))});
+    var pH, mV_val;
+    if (state.phSimMode === 'mv') {
+      mV_val = state.phSimMv;
+      pH = 7.0 - (mV_val / sl);
+      pH = Math.max(-2, Math.min(16, pH));
+    } else {
+      pH = state.phSimRef;
+      mV_val = (7.0 - pH) * sl;
+    }
+    var hc=Math.pow(10,-pH);
+    data.push({temp:t,ph:parseFloat(pH.toFixed(3)),hconc:hc,mV:parseFloat(mV_val.toFixed(1))});
   });
   lastPHData = data; return data;
 }
