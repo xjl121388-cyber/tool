@@ -660,13 +660,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
       <div id="panel-ph" class="factor-panel">
         <div class="card glass">
           <div class="card-header"><span class="icon">&#9881;</span><h2>pH 标定参数配置</h2></div>
-          <div class="form-group">
-            <div class="label-wrapper"><label>温度补偿系数 (&#945;<sub>ph</sub>)</label><span class="static-hint" style="background:rgba(48,209,88,0.12);color:var(--color-success);">pH/°C</span></div>
-            <div class="input-with-select">
-              <input type="number" id="ph-alpha-input" value="-0.005" min="-0.1" max="0.1" step="0.001">
-              <select id="ph-alpha-preset"><option value="-0.003">-0.003</option><option value="-0.005" selected>-0.005</option><option value="-0.015">-0.015</option><option value="0.000">无温补</option><option value="custom">自定义</option></select>
-            </div>
-          </div>
+          <!-- pH Alpha removed to strictly follow Nernst Equation -->
           <div class="form-group">
             <div class="label-wrapper"><label>等效电势模拟 (mV<sub>sim</sub>)</label><span class="static-hint" id="ph-mv-calc-ph" style="background:rgba(48,209,88,0.12);color:var(--color-success);">7.00 pH</span></div>
             <div class="input-with-select">
@@ -905,18 +899,17 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           
-          <h3>二、介质自身温度系数补偿</h3>
+          <h3>二、pH 测量推算逻辑 (反向)</h3>
           
           <div class="formula-block">
-            <p><strong>3. 介质 pH 随温度的漂移公式：</strong> 溶液（如缓冲液）自身的 pH 会随温度改变。</p>
-            <div class="math-display">$$ pH_{test} = pH_{ref} + \alpha_{ph} \times (t_{test} - 25) $$</div>
+            <p><strong>3. 通过毫伏值推算当前 pH：</strong> 已知电极电位及当前温度。</p>
+            <div class="math-display">$$ pH_{test} = 7.00 - \frac{mV}{S} $$</div>
             <div class="math-legend">
               <p>其中：</p>
               <ul>
-                <li><span class="sym">$pH_{test}$</span>：测试温度 $t_{test}$ 下介质的实际 $pH$ 值</li>
-                <li><span class="sym">$pH_{ref}$</span>：介质在基准温度 (25°C) 时的 $pH$ 值</li>
-                <li><span class="sym">$\alpha_{ph}$</span>：介质本身的温度系数，表示每升高 1°C 其 $pH$ 的变化量，单位为 $pH/^\circ C$</li>
-                <li><span class="sym">$t_{test}$</span>：当前的实际测试温度，单位为 $^\circ C$</li>
+                <li><span class="sym">$pH_{test}$</span>：推算出的溶液当前 $pH$ 值</li>
+                <li><span class="sym">$mV$</span>：仪表采集到的传感器电势信号</li>
+                <li><span class="sym">$S$</span>：上述公式计算得出的当前温度下能斯特斜率</li>
               </ul>
             </div>
           </div>
@@ -1046,7 +1039,7 @@ var state = {
   refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
   refCond: 50.00, condUnit: 'uS/cm',
   tempStart: 0, tempEnd: 100, tempStep: 1, chartMode: 'cond',
-  phAlpha: -0.005, phSimMv: 0.0, phSimRef: 7.00, phSimMode: 'ref',
+  phSimMv: 0.0, phSimRef: 7.00, phSimMode: 'ref',
   phTestTemp: 25.0, phRefTemp: 25.0, phChartMode: 'ph',
   phTempStart: 0, phTempEnd: 100, phTempStep: 1,
   modbusTx: '', modbusRx: '', modbusData: '', modbusProtocol: 'rtu',
@@ -1071,7 +1064,6 @@ var el = {
   tdsFactorInput: $('tds-factor-input'), tdsFactorPresetSelect: $('tds-factor-preset'),
   chartModeButtons: document.querySelectorAll('.chart-mode-btn:not(.ph-chart-mode-btn)'),
   chartTitle: $('chart-title'), chartLegend: $('chart-legend'),
-  phAlphaInput: $('ph-alpha-input'), phAlphaPresetSelect: $('ph-alpha-preset'),
   phSimMvInput: $('ph-sim-mv'), phSimMvPresetSelect: $('ph-sim-mv-preset'),
   phSimRefInput: $('ph-sim-ref'), phSimRefPresetSelect: $('ph-sim-ref-preset'),
   phTestTempInput: $('ph-test-temp-input'), phTestTempPresetSelect: $('ph-test-temp-preset'),
@@ -1178,19 +1170,14 @@ function updateECReadout() {
 function updateRefPh() {
   var slope=0.198416*(state.phTestTemp+273.15);
   if(state.phSimMode==='ref'){
-    var pHt=state.phSimRef+state.phAlpha*(state.phTestTemp-25);
-    var mV=(7-pHt)*slope; state.phSimMv=mV;
+    var mV=(7-state.phSimRef)*slope; state.phSimMv=mV;
     if(el.phSimMvInput&&document.activeElement!==el.phSimMvInput) el.phSimMvInput.value=mV.toFixed(1);
   } else {
-    var pHt2=7-(state.phSimMv/slope);
-    var pHr=pHt2-state.phAlpha*(state.phTestTemp-25);
-    state.phSimRef=Math.max(-2,Math.min(16,pHr));
+    state.phSimRef=Math.max(-2,Math.min(16,7-(state.phSimMv/slope)));
     if(el.phSimRefInput&&document.activeElement!==el.phSimRefInput) el.phSimRefInput.value=state.phSimRef.toFixed(2);
   }
-  var apHt=state.phSimRef+state.phAlpha*(state.phTestTemp-25);
-  var amV=(7-apHt)*slope;
-  if(el.phMvCalcPh) el.phMvCalcPh.textContent=Math.max(-2,Math.min(16,apHt)).toFixed(2)+' pH';
-  if(el.phRefCalcMv) el.phRefCalcMv.textContent=amV.toFixed(1)+' mV';
+  if(el.phMvCalcPh) el.phMvCalcPh.textContent=state.phSimRef.toFixed(2)+' pH';
+  if(el.phRefCalcMv) el.phRefCalcMv.textContent=state.phSimMv.toFixed(1)+' mV';
 }
 
 function genPHData() {
@@ -1200,7 +1187,7 @@ function genPHData() {
   if(state.phTestTemp>=state.phTempStart&&state.phTestTemp<=state.phTempEnd&&!pts.includes(state.phTestTemp)) pts.push(state.phTestTemp);
   pts=[...new Set(pts)];pts.sort(function(a,b){return a-b;});
   pts.forEach(function(t){
-    var pH=Math.max(-2,Math.min(16,state.phSimRef+state.phAlpha*(t-25)));
+    var pH=state.phSimRef;
     var hc=Math.pow(10,-pH);
     var sl=0.198416*(t+273.15);
     data.push({temp:t,ph:parseFloat(pH.toFixed(3)),hconc:hc,mV:parseFloat(((7-pH)*sl).toFixed(1))});
@@ -1209,7 +1196,7 @@ function genPHData() {
 }
 
 function updatePHReadout() {
-  var pH=Math.max(-2,Math.min(16,state.phSimRef+state.phAlpha*(state.phTestTemp-25)));
+  var pH=state.phSimRef;
   var mV=(7-pH)*0.198416*(state.phTestTemp+273.15);
   el.readoutPh.textContent=mV.toFixed(1);
   if(el.subPhRaw) el.subPhRaw.textContent=pH.toFixed(2);
@@ -1429,10 +1416,9 @@ function updateFormulaCalcs() {
     }
   } else {
     var slope = 0.198416 * (state.phTestTemp + 273.15);
-    var pHt = state.phSimRef + state.phAlpha * (state.phTestTemp - 25);
-    var pHtClamped = Math.max(-2, Math.min(16, pHt));
+    var pHtClamped = state.phSimRef;
     var hc = Math.pow(10, -pHtClamped);
-    var mV = (7 - pHtClamped) * slope;
+    var mV = state.phSimMv;
 
     var elSlopeCalc1 = $('ph-calc-slope-1');
     var elSlopeCalcRes = $('ph-calc-slope-res');
@@ -1444,14 +1430,14 @@ function updateFormulaCalcs() {
     var elMvCalc1 = $('ph-calc-mv-1');
     var elMvCalcRes = $('ph-calc-mv-res');
     if (elMvCalc1 && elMvCalcRes) {
-      elMvCalc1.innerHTML = 'mV = (7 - ' + pHtClamped.toFixed(2) + ') &times; ' + slope.toFixed(2);
+      elMvCalc1.innerHTML = 'mV = (7.00 - ' + pHtClamped.toFixed(2) + ') &times; ' + slope.toFixed(2);
       elMvCalcRes.innerHTML = 'mV = ' + mV.toFixed(1) + ' mV';
     }
 
     var elPhtCalc1 = $('ph-calc-pht-1');
     var elPhtCalcRes = $('ph-calc-pht-res');
     if (elPhtCalc1 && elPhtCalcRes) {
-      elPhtCalc1.innerHTML = 'pH<sub>test</sub> = ' + state.phSimRef.toFixed(2) + ' + (' + state.phAlpha.toFixed(3) + ') &times; (' + state.phTestTemp.toFixed(1) + ' - 25)';
+      elPhtCalc1.innerHTML = 'pH<sub>test</sub> = 7.00 - (' + mV.toFixed(1) + ' / ' + slope.toFixed(2) + ')';
       elPhtCalcRes.innerHTML = 'pH<sub>test</sub> = ' + pHtClamped.toFixed(2) + ' pH';
     }
 
@@ -1535,7 +1521,6 @@ function syncStateToDOM() {
     else if (state.lastModbusActivePanel === 'data' && $('btn-parse-data') && state.modbusData) $('btn-parse-data').click();
   }, 100);
 
-  if (el.phAlphaInput) el.phAlphaInput.value = state.phAlpha.toFixed(3);
   if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(1);
   if (el.phSimRefInput) el.phSimRefInput.value = state.phSimRef.toFixed(2);
   if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
@@ -1564,7 +1549,6 @@ function syncStateToDOM() {
   syncPresetDropdown(el.alphaInput, el.alphaPresetSelect, 2);
   syncPresetDropdown(el.testTempInput, el.testTempPresetSelect, 1);
   syncPresetDropdown(el.tdsFactorInput, el.tdsFactorPresetSelect, 2);
-  syncPresetDropdown(el.phAlphaInput, el.phAlphaPresetSelect, 3);
   syncPresetDropdown(el.phSimRefInput, el.phSimRefPresetSelect, 2);
   syncPresetDropdown(el.phTestTempInput, el.phTestTempPresetSelect, 1);
 }
@@ -1640,7 +1624,6 @@ bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3);
 bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2);
 bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1);
 bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
-bindPreset(el.phAlphaInput,el.phAlphaPresetSelect,'phAlpha',3);
 bindPreset(el.phSimRefInput,el.phSimRefPresetSelect,'phSimRef',2);
 bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
 
