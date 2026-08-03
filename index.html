@@ -600,7 +600,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           <div class="form-group">
-            <div class="label-wrapper"><label>基准电导率模拟 (K<sub>sim</sub>)</label><span class="static-hint" id="sim-cond-calc-res">20.0 k&#937;</span></div>
+            <div class="label-wrapper"><label>当前温度电导率模拟 (K<sub>t</sub>)</label><span class="static-hint" id="sim-cond-calc-res">20.0 k&#937;</span></div>
             <div class="input-with-select">
               <input type="number" id="sim-conductivity" value="50.00" min="0.01" max="99999999" step="0.1">
               <select id="sim-cond-unit"><option value="uS/cm">&#956;S/cm</option><option value="mS/cm">mS/cm</option></select>
@@ -1092,7 +1092,11 @@ var lastECData = null, lastPHData = null;
 
 /* ---- 核心算法 ---- */
 function tempCompK(a, t) { return 1 + (a/100)*(t-25); }
-function calcKt(kUncomp, a, t) { return Math.max(0, kUncomp / tempCompK(a, t)); }
+function calcKAtTemp(k25, a, t) { return Math.max(0, k25 * tempCompK(a, t)); }
+function calcK25(kAtTemp, a, t) {
+  var factor = tempCompK(a, t);
+  return factor > 0 ? kAtTemp / factor : 0;
+}
 
 function calcSalinity(condUs) {
   var table = [
@@ -1135,6 +1139,31 @@ function updateRefCond() {
   }
 }
 
+function updateK25FromSimulation() {
+  var kAtTemp;
+  if (state.simMode==='res') {
+    var rOhm = state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
+    kAtTemp = rOhm>0.001 ? (state.kCell/rOhm)*1000000 : 0;
+  } else {
+    kAtTemp = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
+  }
+  state.refCond = calcK25(kAtTemp, state.alpha, state.testTemp);
+}
+
+function updateSimulationValues() {
+  var kAtTemp = calcKAtTemp(state.refCond, state.alpha, state.testTemp);
+  var condDisplay = state.simCondInputUnit==='mS/cm'?kAtTemp/1000:kAtTemp;
+  var rOhm = kAtTemp>0.001?(state.kCell/kAtTemp)*1000000:99999999;
+  var resDisplay = state.simResUnit==='kohm'?rOhm/1000:rOhm;
+
+  state.simConductivity = condDisplay;
+  state.simResistance = resDisplay;
+  if (el.simConductivityInput) el.simConductivityInput.value = condDisplay.toFixed(2);
+  if (el.simResistanceInput) el.simResistanceInput.value = resDisplay>=100?resDisplay.toFixed(1):resDisplay.toFixed(2);
+  if (el.simResCalcCond) el.simResCalcCond.textContent = kAtTemp.toFixed(2)+' '+state.condUnit;
+  if (el.simCondCalcRes) el.simCondCalcRes.textContent = rOhm>=1000?(rOhm/1000).toFixed(3)+' kOhm':rOhm.toFixed(1)+' Ohm';
+}
+
 function genECData() {
   var pts=[],data=[];
   for(var t=state.tempStart;t<=state.tempEnd;t+=state.tempStep) pts.push(parseFloat(t.toFixed(2)));
@@ -1142,14 +1171,14 @@ function genECData() {
   if(state.testTemp>=state.tempStart&&state.testTemp<=state.tempEnd&&!pts.includes(state.testTemp)) pts.push(state.testTemp);
   pts=[...new Set(pts)]; pts.sort(function(a,b){return a-b;});
   pts.forEach(function(t){
-    var kt=calcKt(state.refCond,state.alpha,t);
+    var kt=calcKAtTemp(state.refCond,state.alpha,t);
     data.push({temp:t,cond:parseFloat(kt.toFixed(4)),tds:parseFloat((kt*state.tdsFactor).toFixed(2)),res:parseFloat((kt>0.0001?1/kt:100).toFixed(4)),sal:parseFloat(calcSalinity(kt).toFixed(5)),signal:parseFloat((kt>0.001?(state.kCell/kt)*1000000:99999999).toFixed(2))});
   });
   lastECData = data; return data;
 }
 
 function updateECReadout() {
-  var kt=calcKt(state.refCond,state.alpha,state.testTemp);
+  var kt=calcKAtTemp(state.refCond,state.alpha,state.testTemp);
   var tds=kt*state.tdsFactor;
   el.readoutTds.textContent=tds.toFixed(1);
   if(el.subTdsMgl) el.subTdsMgl.textContent=tds.toFixed(1);
@@ -1392,7 +1421,7 @@ function redrawChartsOnly() {
 function updateFormulaCalcs() {
   if (state.activeFactor === 'ec') {
     var rOhm = state.simResUnit === 'kohm' ? state.simResistance * 1000 : state.simResistance;
-    var kt = calcKt(state.refCond, state.alpha, state.testTemp);
+    var kt = calcKAtTemp(state.refCond, state.alpha, state.testTemp);
     var tds = kt * state.tdsFactor;
     var sal = calcSalinity(kt);
 
@@ -1426,7 +1455,7 @@ function updateFormulaCalcs() {
     var elTdsCalc1 = $('ec-calc-tds-1');
     var elTdsCalcRes = $('ec-calc-tds-res');
     if (elTdsCalc1 && elTdsCalcRes) {
-      elTdsCalc1.innerHTML = 'TDS = ' + state.refCond.toFixed(2) + ' &times; ' + state.tdsFactor.toFixed(2);
+      elTdsCalc1.innerHTML = 'TDS = ' + kt.toFixed(2) + ' &times; ' + state.tdsFactor.toFixed(2);
       elTdsCalcRes.innerHTML = 'TDS = ' + tds.toFixed(1) + ' ppm';
     }
 
@@ -1584,7 +1613,7 @@ function syncStateToDOM() {
 
 function globalUpdate() {
   if(state.activeFactor==='ec'){
-    updateRefCond();
+    updateSimulationValues();
     var d=genECData();
     if(typeof Chart!=='undefined' && state.viewMode==='sim'){
       updateECChart(d);
@@ -1635,29 +1664,41 @@ function switchFactor(id, mode) {
 }
 
 /* ---- 事件绑定 ---- */
-function bindPreset(inp,sel,prop,prec) {
+function bindPreset(inp,sel,prop,prec,onStateChange) {
   if(!inp||!sel) return;
   sel.addEventListener('change',function(e){
     var v=e.target.value;
-    if(v!=='custom'){var n=parseFloat(v);inp.value=n.toFixed(prec);state[prop]=n;globalUpdate();}
+    if(v!=='custom'){var n=parseFloat(v);inp.value=n.toFixed(prec);state[prop]=n;if(onStateChange)onStateChange();globalUpdate();}
   });
   inp.addEventListener('input',function(e){
     var n=parseFloat(e.target.value);if(isNaN(n)) return;state[prop]=n;
     var f=false;
     for(var i=0;i<sel.options.length;i++){var ov=sel.options[i].value;if(ov!=='custom'&&Math.abs(parseFloat(ov)-n)<1e-4){sel.value=ov;f=true;break;}}
     if(!f) sel.value='custom';
+    if(onStateChange)onStateChange();
     globalUpdate();
   });
 }
-bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3);
+bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3,function(){if(state.simMode==='res')updateK25FromSimulation();});
 bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2);
 bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1);
 bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
 bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
 
-el.simResistanceInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<=0.001)return;state.simMode='res';state.simResistance=v;globalUpdate();});
-el.simResUnitSelect.addEventListener('change',function(e){state.simMode='res';state.simResUnit=e.target.value;globalUpdate();});
-el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;globalUpdate();});
+el.simResistanceInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<=0.001)return;state.simMode='res';state.simResistance=v;updateK25FromSimulation();globalUpdate();});
+el.simResUnitSelect.addEventListener('change',function(e){
+  var rOhm=state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
+  state.simResUnit=e.target.value;
+  state.simResistance=state.simResUnit==='kohm'?rOhm/1000:rOhm;
+  globalUpdate();
+});
+el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;updateK25FromSimulation();globalUpdate();});
+el.simCondUnitSelect.addEventListener('change',function(e){
+  var kUs=state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
+  state.simCondInputUnit=e.target.value;
+  state.simConductivity=state.simCondInputUnit==='mS/cm'?kUs/1000:kUs;
+  globalUpdate();
+});
 el.phSimMvInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v))return;state.phSimMode='mv';state.phSimMv=v;globalUpdate();});
 el.phSimMvPresetSelect.addEventListener('change',function(e){var v=e.target.value;if(v!=='custom'){var n=parseFloat(v);el.phSimMvInput.value=n.toFixed(1);state.phSimMode='mv';state.phSimMv=n;globalUpdate();}});
 el.phSimRefInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<-2||v>16)return;state.phSimMode='ref';state.phSimRef=v;globalUpdate();});
