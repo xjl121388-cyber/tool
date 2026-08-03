@@ -1158,8 +1158,8 @@ function updateSimulationValues() {
 
   state.simConductivity = condDisplay;
   state.simResistance = resDisplay;
-  if (el.simConductivityInput) el.simConductivityInput.value = condDisplay.toFixed(2);
-  if (el.simResistanceInput) el.simResistanceInput.value = resDisplay>=100?resDisplay.toFixed(1):resDisplay.toFixed(2);
+  if (el.simConductivityInput && document.activeElement!==el.simConductivityInput) el.simConductivityInput.value = condDisplay.toFixed(2);
+  if (el.simResistanceInput && document.activeElement!==el.simResistanceInput) el.simResistanceInput.value = resDisplay>=100?resDisplay.toFixed(1):resDisplay.toFixed(2);
   if (el.simResCalcCond) el.simResCalcCond.textContent = kAtTemp.toFixed(2)+' '+state.condUnit;
   if (el.simCondCalcRes) el.simCondCalcRes.textContent = rOhm>=1000?(rOhm/1000).toFixed(3)+' kOhm':rOhm.toFixed(1)+' Ohm';
 }
