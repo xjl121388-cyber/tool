@@ -664,8 +664,8 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           <div class="form-group">
             <div class="label-wrapper"><label>当前温度等效电势 (mV<sub>t</sub>)</label><span class="static-hint" id="ph-mv-calc-ph" style="background:rgba(48,209,88,0.12);color:var(--color-success);">7.00 pH</span></div>
             <div class="input-with-select">
-              <input type="number" id="ph-sim-mv" value="0.0" min="-1200" max="1200" step="0.1">
-              <select id="ph-sim-mv-preset"><option value="0.0">0.0mV(pH7)</option><option value="177.5">177.5mV(pH4)</option><option value="-129.0">-129.0mV(pH9.18)</option><option value="custom">自定义</option></select>
+              <input type="number" id="ph-sim-mv" value="0.00" min="-1200" max="1200" step="0.01">
+              <select id="ph-sim-mv-preset"><option value="0.00">0.00mV(pH7)</option><option value="177.50">177.50mV(pH4)</option><option value="-129.00">-129.00mV(pH9.18)</option><option value="custom">自定义</option></select>
             </div>
           </div>
           <div class="form-group">
@@ -1205,7 +1205,7 @@ function updatePHMvFromReference() {
 
 function updatePHSimulationValues() {
   state.phSimRef=calcPHFromMv(state.phSimMv,state.phTestTemp);
-  if(el.phSimMvInput&&document.activeElement!==el.phSimMvInput) el.phSimMvInput.value=state.phSimMv.toFixed(1);
+  if(el.phSimMvInput&&document.activeElement!==el.phSimMvInput) el.phSimMvInput.value=state.phSimMv.toFixed(2);
   if(el.phSimRefInput&&document.activeElement!==el.phSimRefInput) el.phSimRefInput.value=state.phSimRef.toFixed(2);
   if(el.phMvCalcPh) el.phMvCalcPh.textContent=state.phSimRef.toFixed(2)+' pH';
   if(el.phRefCalcMv) el.phRefCalcMv.textContent=calcPHSlope(state.phTestTemp).toFixed(2)+' mV/pH';
@@ -1373,7 +1373,7 @@ function updatePHChart(data) {
 function updatePHSignalChart(data) {
   if(typeof Chart==='undefined') return;
   if(phSignalChart) phSignalChart.destroy();
-  var labels=data.map(function(d){return d.mV.toFixed(1);});
+  var labels=data.map(function(d){return d.mV.toFixed(2);});
   var cfg=getPHModeConfig(data[0]); var yUnit=cfg.yUnit; var color=cfg.color;
   var vals=data.map(function(d){return getPHModeConfig(d).val;});
   var testIdx=-1,refIdx=-1;
@@ -1460,13 +1460,13 @@ function updateFormulaCalcs() {
     var elMvCalcRes = $('ph-calc-mv-res');
     if (elMvCalc1 && elMvCalcRes) {
       elMvCalc1.innerHTML = 'mV<sub>t</sub> = data<sub>mV</sub>';
-      elMvCalcRes.innerHTML = 'mV<sub>t</sub> = ' + mV.toFixed(1) + ' mV';
+      elMvCalcRes.innerHTML = 'mV<sub>t</sub> = ' + mV.toFixed(2) + ' mV';
     }
 
     var elPhtCalc1 = $('ph-calc-pht-1');
     var elPhtCalcRes = $('ph-calc-pht-res');
     if (elPhtCalc1 && elPhtCalcRes) {
-      elPhtCalc1.innerHTML = 'pH<sub>ref</sub> = 7.00 - (' + mV.toFixed(1) + ' / ' + slope.toFixed(2) + ')';
+      elPhtCalc1.innerHTML = 'pH<sub>ref</sub> = 7.00 - (' + mV.toFixed(2) + ' / ' + slope.toFixed(2) + ')';
       elPhtCalcRes.innerHTML = 'pH<sub>ref</sub> = ' + pHtClamped.toFixed(2) + ' pH';
     }
 
@@ -1550,7 +1550,7 @@ function syncStateToDOM() {
     else if (state.lastModbusActivePanel === 'data' && $('btn-parse-data') && state.modbusData) $('btn-parse-data').click();
   }, 100);
 
-  if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(1);
+  if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(2);
   if (el.phSimRefInput) el.phSimRefInput.value = state.phSimRef.toFixed(2);
   if (el.phCalTempInput) el.phCalTempInput.value = state.phCalTemp.toFixed(1);
   if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
@@ -1579,7 +1579,7 @@ function syncStateToDOM() {
   syncPresetDropdown(el.alphaInput, el.alphaPresetSelect, 2);
   syncPresetDropdown(el.testTempInput, el.testTempPresetSelect, 1);
   syncPresetDropdown(el.tdsFactorInput, el.tdsFactorPresetSelect, 2);
-  syncPresetDropdown(el.phSimMvInput, el.phSimMvPresetSelect, 1);
+  syncPresetDropdown(el.phSimMvInput, el.phSimMvPresetSelect, 2);
   syncPresetDropdown(el.phSimRefInput, el.phSimRefPresetSelect, 2);
   syncPresetDropdown(el.phCalTempInput, el.phCalTempPresetSelect, 1);
   syncPresetDropdown(el.phTestTempInput, el.phTestTempPresetSelect, 1);
@@ -1656,7 +1656,7 @@ bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3,function()
 bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2);
 bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1);
 bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
-bindPreset(el.phSimMvInput,el.phSimMvPresetSelect,'phSimMv',1);
+bindPreset(el.phSimMvInput,el.phSimMvPresetSelect,'phSimMv',2);
 bindPreset(el.phSimRefInput,el.phSimRefPresetSelect,'phSimRef',2,function(){updatePHMvFromReference();});
 bindPreset(el.phCalTempInput,el.phCalTempPresetSelect,'phCalTemp',1);
 bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
