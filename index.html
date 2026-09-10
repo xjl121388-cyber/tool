@@ -594,14 +594,14 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           <div class="form-group">
-            <div class="label-wrapper"><label>等效阻值模拟 (R<sub>sim</sub>)</label><span class="static-hint" id="sim-res-calc-cond">50.00 &#956;S/cm</span></div>
+            <div class="label-wrapper"><label>等效阻值模拟 (R<sub>sim</sub>)</label><span class="static-hint" id="sim-res-calc-cond">原始 K<sub>t</sub>: 50.00 &#956;S/cm</span></div>
             <div class="input-with-select">
               <input type="number" id="sim-resistance" value="20000" min="0.01" max="99999999" step="0.1">
               <select id="sim-res-unit"><option value="ohm">&#937;</option><option value="kohm">k&#937;</option></select>
             </div>
           </div>
           <div class="form-group">
-            <div class="label-wrapper"><label>当前温度电导率模拟 (K<sub>t</sub>)</label><span class="static-hint" id="sim-cond-calc-res">20.0 k&#937;</span></div>
+            <div class="label-wrapper"><label>当前温度电导率模拟 (K<sub>t</sub>，温补后)</label><span class="static-hint" id="sim-cond-calc-res">参考 25°C</span></div>
             <div class="input-with-select">
               <input type="number" id="sim-conductivity" value="50.00" min="0.01" max="99999999" step="0.1">
               <select id="sim-cond-unit"><option value="uS/cm">&#956;S/cm</option><option value="mS/cm">mS/cm</option></select>
@@ -1117,19 +1117,26 @@ function updateRefCond() {
 }
 
 function updateK25FromSimulation() {
-  var kAtTemp;
   if (state.simMode==='res') {
     var rOhm = state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
-    kAtTemp = rOhm>0.001 ? (state.kCell/rOhm)*1000000 : 0;
+    var kAtTemp = rOhm>0.001 ? (state.kCell/rOhm)*1000000 : 0;
+    state.refCond = calcK25(kAtTemp, state.alpha, state.testTemp);
   } else {
-    kAtTemp = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
+    state.refCond = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
   }
-  state.refCond = calcK25(kAtTemp, state.alpha, state.testTemp);
+}
+
+function retainResistanceBoxInput() {
+  var displayedResistance=parseFloat(el.simResistanceInput.value);
+  if(isNaN(displayedResistance)||displayedResistance<=0.001) return;
+  state.simMode='res';
+  state.simResistance=displayedResistance;
+  updateK25FromSimulation();
 }
 
 function updateSimulationValues() {
   var kAtTemp = calcKAtTemp(state.refCond, state.alpha, state.testTemp);
-  var condDisplay = state.simCondInputUnit==='mS/cm'?kAtTemp/1000:kAtTemp;
+  var condDisplay = state.simCondInputUnit==='mS/cm'?state.refCond/1000:state.refCond;
   var rOhm = kAtTemp>0.001?(state.kCell/kAtTemp)*1000000:99999999;
   var resDisplay = state.simResUnit==='kohm'?rOhm/1000:rOhm;
 
@@ -1137,8 +1144,8 @@ function updateSimulationValues() {
   state.simResistance = resDisplay;
   if (el.simConductivityInput && document.activeElement!==el.simConductivityInput) el.simConductivityInput.value = condDisplay.toFixed(2);
   if (el.simResistanceInput && document.activeElement!==el.simResistanceInput) el.simResistanceInput.value = resDisplay>=100?resDisplay.toFixed(1):resDisplay.toFixed(2);
-  if (el.simResCalcCond) el.simResCalcCond.textContent = kAtTemp.toFixed(2)+' '+state.condUnit;
-  if (el.simCondCalcRes) el.simCondCalcRes.textContent = rOhm>=1000?(rOhm/1000).toFixed(3)+' kOhm':rOhm.toFixed(1)+' Ohm';
+  if (el.simResCalcCond) el.simResCalcCond.innerHTML = '原始 K<sub>t</sub>: '+kAtTemp.toFixed(2)+' '+state.condUnit;
+  if (el.simCondCalcRes) el.simCondCalcRes.textContent = '参考 25°C';
 }
 
 function genECData() {
@@ -1155,23 +1162,23 @@ function genECData() {
 }
 
 function updateECReadout() {
-  var kt=calcKAtTemp(state.refCond,state.alpha,state.testTemp);
-  var tds=kt*state.tdsFactor;
+  var compensatedCond=state.refCond;
+  var tds=compensatedCond*state.tdsFactor;
   el.readoutTds.textContent=tds.toFixed(1);
   if(el.subTdsMgl) el.subTdsMgl.textContent=tds.toFixed(1);
   if(el.subTdsGl) el.subTdsGl.textContent=(tds/1000).toFixed(3);
   var resD='开路',resU='>100 MΩ·cm',resK='开路',resM='开路';
-  if(kt>0.0001){
-    resM=(1/kt).toFixed(3);resK=((1/kt)*1000).toFixed(1);
-    if(1/kt>=1){resD=(1/kt).toFixed(3);resU='MΩ·cm';}
-    else if(1/kt>=0.001){resD=((1/kt)*1000).toFixed(1);resU='kΩ·cm';}
-    else{resD=((1/kt)*1000000).toFixed(0);resU='Ω·cm';}
+  if(compensatedCond>0.0001){
+    resM=(1/compensatedCond).toFixed(3);resK=((1/compensatedCond)*1000).toFixed(1);
+    if(1/compensatedCond>=1){resD=(1/compensatedCond).toFixed(3);resU='MΩ·cm';}
+    else if(1/compensatedCond>=0.001){resD=((1/compensatedCond)*1000).toFixed(1);resU='kΩ·cm';}
+    else{resD=((1/compensatedCond)*1000000).toFixed(0);resU='Ω·cm';}
   }
   el.readoutRes.textContent=resD;
   document.querySelector('.res-style .readout-unit').textContent=resU;
   if(el.subResKohm) el.subResKohm.textContent=resK;
   if(el.subResMohm) el.subResMohm.textContent=resM;
-  var sal=calcSalinity(kt);
+  var sal=calcSalinity(compensatedCond);
   el.readoutSal.textContent=sal.toFixed(4);
   if(el.subSalMgl) el.subSalMgl.textContent=(sal*1000).toFixed(1);
   if(el.subSalPpt) el.subSalPpt.textContent=sal.toFixed(4);
@@ -1402,8 +1409,9 @@ function updateFormulaCalcs() {
   if (state.activeFactor === 'ec') {
     var rOhm = state.simResUnit === 'kohm' ? state.simResistance * 1000 : state.simResistance;
     var kt = calcKAtTemp(state.refCond, state.alpha, state.testTemp);
-    var tds = kt * state.tdsFactor;
-    var sal = calcSalinity(kt);
+    var compensatedCond = state.refCond;
+    var tds = compensatedCond * state.tdsFactor;
+    var sal = calcSalinity(compensatedCond);
 
     var elKtCalc1 = $('ec-calc-kt-1');
     var elKtCalcRes = $('ec-calc-kt-res');
@@ -1415,12 +1423,12 @@ function updateFormulaCalcs() {
     var elResCalc1 = $('ec-calc-res-1');
     var elResCalcRes = $('ec-calc-res-res');
     if (elResCalc1 && elResCalcRes) {
-      elResCalc1.innerHTML = '&rho;<sub>t</sub> = 1 / (' + kt.toFixed(2) + ' &times; 10<sup>-6</sup> S/cm)';
+      elResCalc1.innerHTML = '&rho;<sub>t</sub> = 1 / (' + compensatedCond.toFixed(2) + ' &times; 10<sup>-6</sup> S/cm)';
       var resStr = '开路';
-      if (kt > 0.0001) {
-        if (1/kt >= 1) resStr = (1/kt).toFixed(3) + ' M&Omega;&middot;cm';
-        else if (1/kt >= 0.001) resStr = ((1/kt)*1000).toFixed(1) + ' k&Omega;&middot;cm';
-        else resStr = ((1/kt)*1000000).toFixed(0) + ' &Omega;&middot;cm';
+      if (compensatedCond > 0.0001) {
+        if (1/compensatedCond >= 1) resStr = (1/compensatedCond).toFixed(3) + ' M&Omega;&middot;cm';
+        else if (1/compensatedCond >= 0.001) resStr = ((1/compensatedCond)*1000).toFixed(1) + ' k&Omega;&middot;cm';
+        else resStr = ((1/compensatedCond)*1000000).toFixed(0) + ' &Omega;&middot;cm';
       }
       elResCalcRes.innerHTML = '&rho;<sub>t</sub> = ' + resStr;
     }
@@ -1435,7 +1443,7 @@ function updateFormulaCalcs() {
     var elTdsCalc1 = $('ec-calc-tds-1');
     var elTdsCalcRes = $('ec-calc-tds-res');
     if (elTdsCalc1 && elTdsCalcRes) {
-      elTdsCalc1.innerHTML = 'TDS = ' + kt.toFixed(2) + ' &times; ' + state.tdsFactor.toFixed(2);
+      elTdsCalc1.innerHTML = 'TDS = ' + compensatedCond.toFixed(2) + ' &times; ' + state.tdsFactor.toFixed(2);
       elTdsCalcRes.innerHTML = 'TDS = ' + tds.toFixed(1) + ' ppm';
     }
 
@@ -1652,9 +1660,9 @@ function bindPreset(inp,sel,prop,prec,onStateChange) {
     globalUpdate();
   });
 }
-bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3,function(){if(state.simMode==='res')updateK25FromSimulation();});
-bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2);
-bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1);
+bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3,retainResistanceBoxInput);
+bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2,retainResistanceBoxInput);
+bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1,retainResistanceBoxInput);
 bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
 bindPreset(el.phSimMvInput,el.phSimMvPresetSelect,'phSimMv',2);
 bindPreset(el.phSimRefInput,el.phSimRefPresetSelect,'phSimRef',2,function(){updatePHMvFromReference();});
@@ -1668,7 +1676,7 @@ el.simResUnitSelect.addEventListener('change',function(e){
   state.simResistance=state.simResUnit==='kohm'?rOhm/1000:rOhm;
   globalUpdate();
 });
-el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;updateK25FromSimulation();globalUpdate();});
+el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;state.refCond=state.simCondInputUnit==='mS/cm'?v*1000:v;globalUpdate();});
 el.simCondUnitSelect.addEventListener('change',function(e){
   var kUs=state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
   state.simCondInputUnit=e.target.value;
