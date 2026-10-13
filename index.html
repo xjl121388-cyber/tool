@@ -10,6 +10,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
+      if (typeof renderMathInElement !== 'function') return;
       renderMathInElement(document.body, {
         delimiters: [
             {left: '$$', right: '$$', display: true},
@@ -206,6 +207,11 @@ input[type="number"]:focus, select:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.2);
 }
+input[aria-invalid="true"], .highlight-input input[aria-invalid="true"] { border-color: var(--color-danger); }
+.model-note { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+.calibration-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#ph-calibrate { height: 36px; border: 0; border-radius: var(--border-radius-sm); background: var(--color-primary); color: #fff; cursor: pointer; font-weight: 600; }
+#ph-calibrate:hover { filter: brightness(1.1); }
 .input-with-select { display: grid; grid-template-columns: 1fr 105px; gap: 8px; }
 select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
 .highlight-input input, .highlight-input select { border-color: rgba(255,159,10,0.25); }
@@ -601,16 +607,16 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           <div class="form-group">
-            <div class="label-wrapper"><label>当前温度电导率模拟 (K<sub>t</sub>，温补后)</label><span class="static-hint" id="sim-cond-calc-res">参考 25°C</span></div>
+            <div class="label-wrapper"><label>当前温度电导率模拟 (K<sub>t</sub>)</label><span class="static-hint" id="sim-cond-calc-res">参考 25°C</span></div>
             <div class="input-with-select">
-              <input type="number" id="sim-conductivity" value="50.00" min="0.01" max="99999999" step="0.1">
+              <input type="number" id="sim-conductivity" value="50.00" min="0" max="99999999" step="0.1">
               <select id="sim-cond-unit"><option value="uS/cm">&#956;S/cm</option><option value="mS/cm">mS/cm</option></select>
             </div>
           </div>
           <div class="form-group highlight-input">
             <div class="label-wrapper"><label>当前测试温度 (t<sub>test</sub>)</label><span class="static-hint" style="background:rgba(255,159,10,0.12);color:var(--color-warning);">°C</span></div>
             <div class="input-with-select">
-              <input type="number" id="test-temp-input" value="25.0" min="-100" max="200" step="0.1">
+              <input type="number" id="test-temp-input" value="25.0" min="-10" max="150" step="0.1">
               <select id="test-temp-preset" style="border-color:rgba(255,159,10,0.25);color:var(--color-warning);"><option value="25.0">25.0°C</option><option value="0.0">0.0°C</option><option value="100.0">100.0°C</option><option value="50.0">50.0°C</option><option value="custom">自定义</option></select>
             </div>
           </div>
@@ -628,7 +634,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
               </div>
             </div>
             <div class="readout-segment res-style">
-              <div class="readout-label">物理电阻率 (&#961;<sub>t</sub>)</div>
+              <div class="readout-label">当前温度电阻率 (&#961;<sub>t</sub>)</div>
               <div class="readout-value" id="readout-res">---</div>
               <div class="readout-unit">M&#937;·cm</div>
               <div class="readout-sub-container">
@@ -655,6 +661,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           <div class="readout-status">测量点状态：<span id="readout-status-text">参考基准温度点 (T_ref)</span></div>
+          <p class="model-note">线性温补仅适用于所选溶液及有效温区，曲线会跳过温补因子不大于零的区间；TDS 和盐度为估算值。盐度使用内置经验插值表，仅在 0～500000 μS/cm 内显示。</p>
         </div>
       </div>
       <!-- pH 面板 -->
@@ -669,7 +676,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           <div class="form-group">
-            <div class="label-wrapper"><label>参考 pH（温补后）</label><span class="static-hint" id="ph-ref-calc-mv" style="background:rgba(48,209,88,0.12);color:var(--color-success);">59.16 mV/pH</span></div>
+            <div class="label-wrapper"><label>当前温度 pH（电极斜率补偿）</label><span class="static-hint" id="ph-ref-calc-mv" style="background:rgba(48,209,88,0.12);color:var(--color-success);">59.16 mV/pH</span></div>
             <div class="input-with-select">
               <input type="number" id="ph-sim-ref" value="7.00" min="-2" max="16" step="0.01">
               <select id="ph-sim-ref-preset"><option value="7.00">7.00</option><option value="4.01">4.01</option><option value="9.18">9.18</option><option value="custom">自定义</option></select>
@@ -682,6 +689,28 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
               <select id="ph-test-temp-preset" style="border-color:rgba(255,159,10,0.25);color:var(--color-warning);"><option value="25.0">25.0°C</option><option value="0.0">0.0°C</option><option value="100.0">100.0°C</option><option value="custom">自定义</option></select>
             </div>
           </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label for="ph-zero-offset">pH 7 零点电势</label><span class="static-hint">mV</span></div>
+            <input type="number" id="ph-zero-offset" value="0" min="-1200" max="1200" step="0.01">
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label for="ph-slope-efficiency">电极斜率效率</label><span class="static-hint">%</span></div>
+            <input type="number" id="ph-slope-efficiency" value="100" min="1" max="120" step="0.1">
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>同温度缓冲液标定点</label><span class="static-hint">pH / mV</span></div>
+            <div class="calibration-grid">
+              <input type="number" id="ph-cal-ph-1" aria-label="标定点 1 pH" value="4.01" min="-2" max="16" step="0.01">
+              <input type="number" id="ph-cal-mv-1" aria-label="标定点 1 电势 mV" value="177.50" min="-1200" max="1200" step="0.01">
+              <input type="number" id="ph-cal-ph-2" aria-label="标定点 2 pH" value="7.00" min="-2" max="16" step="0.01">
+              <input type="number" id="ph-cal-mv-2" aria-label="标定点 2 电势 mV" value="0.00" min="-1200" max="1200" step="0.01">
+              <input type="number" id="ph-cal-ph-3" aria-label="标定点 3 pH，可留空" value="9.18" min="-2" max="16" step="0.01">
+              <input type="number" id="ph-cal-mv-3" aria-label="标定点 3 电势 mV，可留空" value="-129.00" min="-1200" max="1200" step="0.01">
+            </div>
+            <button type="button" id="ph-calibrate">计算标定参数</button>
+            <p class="model-note" id="ph-calibration-result" role="status">第三点可留空；所有点须在当前测试温度下测得。</p>
+          </div>
+          <p class="model-note">输入实测零点与斜率参数；默认 0 mV、100% 为理想电极。温度补偿仅调整电极响应，不代表样品 pH 在 25°C 的值。</p>
         </div>
       </div>
       
@@ -858,7 +887,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           
           <div class="formula-block">
             <p><strong>1. 固定 25°C 基准温补斜率 (S)：</strong> 按附件算法，将斜率换算到当前测试温度。</p>
-            <div class="math-display">$$ S = \frac{t_{test} + 273.15}{25 + 273.15} \times 59.16 $$</div>
+            <div class="math-display">$$ S = \frac{t_{test} + 273.15}{25 + 273.15} \times 59.16 \times \frac{\eta}{100} $$</div>
             <div class="math-legend">
               <p>其中：</p>
               <ul>
@@ -866,6 +895,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
                 <li><span class="sym">$t_{test}$</span>：当前的测试温度，单位为 $^\circ C$</li>
                 <li><span class="sym">$25^\circ C$</span>：固定参考基准温度</li>
                 <li><span class="sym">$59.16$</span>：25°C 下采用的理想电极斜率，单位为 $mV/pH$</li>
+                <li><span class="sym">$\eta$</span>：实测电极斜率效率，单位为 %</li>
               </ul>
             </div>
           </div>
@@ -886,11 +916,12 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           
           <div class="formula-block">
             <p><strong>3. 通过毫伏值推算当前 pH：</strong> 已知电极电位及当前温度。</p>
-            <div class="math-display">$$ pH_{ref} = 7.00 - \frac{mV_t}{S} $$</div>
+            <div class="math-display">$$ pH_t = 7.00 - \frac{mV_t - E_7}{S} $$</div>
             <div class="math-legend">
               <p>其中：</p>
               <ul>
-                <li><span class="sym">$pH_{ref}$</span>：根据当前测试温度补偿后计算出的参考 pH</li>
+                <li><span class="sym">$pH_t$</span>：根据当前测试温度计算出的样品 pH</li>
+                <li><span class="sym">$E_7$</span>：pH 7 时实测的电极零点电势</li>
                 <li><span class="sym">$mV_t$</span>：仪表采集到的传感器电势信号</li>
                 <li><span class="sym">$S$</span>：由当前测试温度相对 25°C 基准计算出的补偿斜率</li>
               </ul>
@@ -898,12 +929,12 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           </div>
           
           <div class="formula-block">
-            <p><strong>4. 氢离子浓度换算：</strong></p>
+            <p><strong>4. 氢离子活度近似换算：</strong></p>
             <div class="math-display">$$ [H^+] = 10^{-pH_{test}} $$</div>
             <div class="math-legend">
               <p>其中：</p>
               <ul>
-                <li><span class="sym">$[H^+]$</span>：溶液中的氢离子活度（浓度），单位为 $mol/L$</li>
+                <li><span class="sym">$[H^+]$</span>：氢离子活度的浓度近似值，单位为 $mol/L$；实际浓度还取决于活度系数</li>
                 <li><span class="sym">$pH_{test}$</span>：溶液当前的 $pH$ 值</li>
               </ul>
             </div>
@@ -990,7 +1021,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
       <span class="cookie-icon">🍪</span>
       <div class="cookie-text">
         <h3>个性化偏好与本地数据存储</h3>
-        <p>我们使用浏览器本地存储（LocalStorage）技术来自动记录您调试的传感器参数、界面主题及视窗模式，以提供连续的调校体验。继续使用本网站即表示您同意我们的数据存储方式。</p>
+        <p>点击“接受全部”后，浏览器会在本地保存传感器参数、主题及视图偏好。点击“拒绝”则仅在当前页面使用这些数据。</p>
       </div>
     </div>
     <div class="cookie-btn-area">
@@ -1000,6 +1031,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
   </div>
 </div>
 
+<script src="sensor-math.js"></script>
 <script>
 'use strict';
 /* ========== Chart.js CDN 动态加载 ========== */
@@ -1022,7 +1054,7 @@ var state = {
   refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
   refCond: 50.00, condUnit: 'uS/cm',
   tempStart: 0, tempEnd: 100, tempStep: 1, chartMode: 'cond',
-  phSimMv: 0.0, phSimRef: 7.00,
+  phSimMv: 0.0, phSimRef: 7.00, phZeroOffset: 0, phSlopeEfficiency: 100,
   phTestTemp: 25.0, phChartMode: 'ph',
   phTempStart: 0, phTempEnd: 100, phTempStep: 1,
   modbusTx: '', modbusRx: '', modbusData: '', modbusProtocol: 'rtu',
@@ -1050,6 +1082,7 @@ var el = {
   phSimMvInput: $('ph-sim-mv'), phSimMvPresetSelect: $('ph-sim-mv-preset'),
   phSimRefInput: $('ph-sim-ref'), phSimRefPresetSelect: $('ph-sim-ref-preset'),
   phTestTempInput: $('ph-test-temp-input'), phTestTempPresetSelect: $('ph-test-temp-preset'),
+  phZeroOffsetInput: $('ph-zero-offset'), phSlopeEfficiencyInput: $('ph-slope-efficiency'),
   phMvCalcPh: $('ph-mv-calc-ph'), phRefCalcMv: $('ph-ref-calc-mv'),
   phChartModeButtons: document.querySelectorAll('.ph-chart-mode-btn'),
   phChartTitle: $('ph-chart-title'), phChartLegend: $('ph-chart-legend'),
@@ -1061,11 +1094,12 @@ var lastECData = null, lastPHData = null;
 var PH_REFERENCE_TEMP = 25.0;
 
 /* ---- 核心算法 ---- */
-function tempCompK(a, t) { return 1 + (a/100)*(t-25); }
-function calcKAtTemp(k25, a, t) { return Math.max(0, k25 * tempCompK(a, t)); }
-function calcK25(kAtTemp, a, t) {
-  var factor = tempCompK(a, t);
-  return factor > 0 ? kAtTemp / factor : 0;
+var tempCompK = SensorMath.temperatureFactor;
+var calcKAtTemp = SensorMath.conductivityAtTemperature;
+var calcK25 = SensorMath.referenceConductivity;
+
+function validECModel(alpha, testTemp) {
+  return tempCompK(alpha, testTemp) > 0;
 }
 
 function calcSalinity(condUs) {
@@ -1077,59 +1111,39 @@ function calcSalinity(condUs) {
     {c:100000,s:72.766687},{c:200000,s:175.345513},{c:300000,s:317.728005},{c:400000,s:511.447377},{c:500000,s:767.135745}
   ];
   if (condUs<=0) return 0;
-  if (condUs>=table[table.length-1].c) { var p1=table[table.length-2],p2=table[table.length-1]; return p2.s+(condUs-p2.c)*((p2.s-p1.s)/(p2.c-p1.c)); }
+  if (condUs>table[table.length-1].c) return null;
   for (var i=0;i<table.length-1;i++){var p1=table[i],p2=table[i+1];if(condUs>=p1.c&&condUs<=p2.c) return p1.s+(condUs-p1.c)/(p2.c-p1.c)*(p2.s-p1.s);}
   return 0;
 }
 
 /* ---- EC 计算 ---- */
-function updateRefCond() {
-  if (state.simMode==='res') {
-    var rOhm = state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
-    state.refCond = rOhm>0.001 ? (state.kCell/rOhm)*1000000 : 0;
-    if (el.simConductivityInput && document.activeElement!==el.simConductivityInput) {
-      var dc = state.simCondInputUnit==='mS/cm'?state.refCond/1000:state.refCond;
-      el.simConductivityInput.value = dc.toFixed(2);
-      state.simConductivity = dc;
-    }
-  } else {
-    var kUs = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
-    state.refCond = kUs;
-    var rO = kUs>0.001?(state.kCell/kUs)*1000000:99999999;
-    if (el.simResistanceInput && document.activeElement!==el.simResistanceInput) {
-      var dr = state.simResUnit==='kohm'?rO/1000:rO;
-      el.simResistanceInput.value = dr>=100?dr.toFixed(1):dr.toFixed(2);
-      state.simResistance = dr;
-    }
-  }
-  if (el.simResCalcCond) el.simResCalcCond.textContent = state.refCond.toFixed(2)+' '+state.condUnit;
-  if (el.simCondCalcRes) {
-    var r = state.refCond>0.001?(state.kCell/state.refCond)*1000000:99999999;
-    el.simCondCalcRes.textContent = r>=9999999?'>1 MΩ':(r>=1000?(r/1000).toFixed(3)+' kΩ':r.toFixed(1)+' Ω');
-  }
-}
-
 function updateK25FromSimulation() {
   if (state.simMode==='res') {
     var rOhm = state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
     var kAtTemp = rOhm>0.001 ? (state.kCell/rOhm)*1000000 : 0;
     state.refCond = calcK25(kAtTemp, state.alpha, state.testTemp);
   } else {
-    state.refCond = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
+    var kAtTemp = state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
+    state.refCond = calcK25(kAtTemp, state.alpha, state.testTemp);
   }
 }
 
 function retainResistanceBoxInput() {
-  var displayedResistance=parseFloat(el.simResistanceInput.value);
-  if(isNaN(displayedResistance)||displayedResistance<=0.001) return;
-  state.simMode='res';
-  state.simResistance=displayedResistance;
+  if (state.simMode==='res') {
+    var displayedResistance=Number(el.simResistanceInput.value);
+    if (!validNumericInput(el.simResistanceInput,displayedResistance)) return;
+    state.simResistance=displayedResistance;
+  } else {
+    var displayedConductivity=Number(el.simConductivityInput.value);
+    if (!validNumericInput(el.simConductivityInput,displayedConductivity)) return;
+    state.simConductivity=displayedConductivity;
+  }
   updateK25FromSimulation();
 }
 
 function updateSimulationValues() {
   var kAtTemp = calcKAtTemp(state.refCond, state.alpha, state.testTemp);
-  var condDisplay = state.simCondInputUnit==='mS/cm'?state.refCond/1000:state.refCond;
+  var condDisplay = state.simCondInputUnit==='mS/cm'?kAtTemp/1000:kAtTemp;
   var rOhm = kAtTemp>0.001?(state.kCell/kAtTemp)*1000000:99999999;
   var resDisplay = state.simResUnit==='kohm'?rOhm/1000:rOhm;
 
@@ -1138,18 +1152,19 @@ function updateSimulationValues() {
   if (el.simConductivityInput && document.activeElement!==el.simConductivityInput) el.simConductivityInput.value = condDisplay.toFixed(2);
   if (el.simResistanceInput && document.activeElement!==el.simResistanceInput) el.simResistanceInput.value = resDisplay>=100?resDisplay.toFixed(1):resDisplay.toFixed(2);
   if (el.simResCalcCond) el.simResCalcCond.innerHTML = '原始 K<sub>t</sub>: '+kAtTemp.toFixed(2)+' '+state.condUnit;
-  if (el.simCondCalcRes) el.simCondCalcRes.textContent = '参考 25°C';
+  if (el.simCondCalcRes) el.simCondCalcRes.textContent = 'K25: '+state.refCond.toFixed(2)+' μS/cm';
 }
 
 function genECData() {
   var pts=[],data=[];
-  for(var t=state.tempStart;t<=state.tempEnd;t+=state.tempStep) pts.push(parseFloat(t.toFixed(2)));
+  for(var t=state.tempStart;t<=state.tempEnd;t+=state.tempStep) if(tempCompK(state.alpha,t)>0) pts.push(parseFloat(t.toFixed(2)));
   if(state.refTemp>=state.tempStart&&state.refTemp<=state.tempEnd&&!pts.includes(state.refTemp)) pts.push(state.refTemp);
   if(state.testTemp>=state.tempStart&&state.testTemp<=state.tempEnd&&!pts.includes(state.testTemp)) pts.push(state.testTemp);
   pts=[...new Set(pts)]; pts.sort(function(a,b){return a-b;});
   pts.forEach(function(t){
     var kt=calcKAtTemp(state.refCond,state.alpha,t);
-    data.push({temp:t,cond:parseFloat(kt.toFixed(4)),tds:parseFloat((kt*state.tdsFactor).toFixed(2)),res:parseFloat((kt>0.0001?1/kt:100).toFixed(4)),sal:parseFloat(calcSalinity(kt).toFixed(5)),signal:parseFloat((kt>0.001?(state.kCell/kt)*1000000:99999999).toFixed(2))});
+    var salinity=calcSalinity(kt);
+    data.push({temp:t,cond:parseFloat(kt.toFixed(4)),tds:parseFloat((kt*state.tdsFactor).toFixed(2)),res:parseFloat((kt>0.0001?1/kt:100).toFixed(4)),sal:salinity===null?null:parseFloat(salinity.toFixed(5)),signal:parseFloat((kt>0.001?(state.kCell/kt)*1000000:99999999).toFixed(2))});
   });
   lastECData = data; return data;
 }
@@ -1161,21 +1176,22 @@ function updateECReadout() {
   if(el.subTdsMgl) el.subTdsMgl.textContent=tds.toFixed(1);
   if(el.subTdsGl) el.subTdsGl.textContent=(tds/1000).toFixed(3);
   var resD='开路',resU='>100 MΩ·cm',resK='开路',resM='开路';
-  if(compensatedCond>0.0001){
-    resM=(1/compensatedCond).toFixed(3);resK=((1/compensatedCond)*1000).toFixed(1);
-    if(1/compensatedCond>=1){resD=(1/compensatedCond).toFixed(3);resU='MΩ·cm';}
-    else if(1/compensatedCond>=0.001){resD=((1/compensatedCond)*1000).toFixed(1);resU='kΩ·cm';}
-    else{resD=((1/compensatedCond)*1000000).toFixed(0);resU='Ω·cm';}
+  var currentCond=calcKAtTemp(state.refCond,state.alpha,state.testTemp);
+  if(currentCond>0.0001){
+    resM=(1/currentCond).toFixed(3);resK=((1/currentCond)*1000).toFixed(1);
+    if(1/currentCond>=1){resD=(1/currentCond).toFixed(3);resU='MΩ·cm';}
+    else if(1/currentCond>=0.001){resD=((1/currentCond)*1000).toFixed(1);resU='kΩ·cm';}
+    else{resD=((1/currentCond)*1000000).toFixed(0);resU='Ω·cm';}
   }
   el.readoutRes.textContent=resD;
   document.querySelector('.res-style .readout-unit').textContent=resU;
   if(el.subResKohm) el.subResKohm.textContent=resK;
   if(el.subResMohm) el.subResMohm.textContent=resM;
   var sal=calcSalinity(compensatedCond);
-  el.readoutSal.textContent=sal.toFixed(4);
-  if(el.subSalMgl) el.subSalMgl.textContent=(sal*1000).toFixed(1);
-  if(el.subSalPpt) el.subSalPpt.textContent=sal.toFixed(4);
-  if(el.subSalPercent) el.subSalPercent.textContent=(sal/10).toFixed(5);
+  el.readoutSal.textContent=sal===null?'超范围':sal.toFixed(4);
+  if(el.subSalMgl) el.subSalMgl.textContent=sal===null?'—':(sal*1000).toFixed(1);
+  if(el.subSalPpt) el.subSalPpt.textContent=sal===null?'—':sal.toFixed(4);
+  if(el.subSalPercent) el.subSalPercent.textContent=sal===null?'—':(sal/10).toFixed(5);
   var st='正常',sc='var(--text-secondary)';
   if(state.testTemp===state.refTemp){st='参考基准温度点(T_ref)';sc='var(--color-success)';}
   else if(state.testTemp<0){st='结冰区域/超低温';sc='var(--color-danger)';}
@@ -1186,16 +1202,15 @@ function updateECReadout() {
 
 /* ---- pH 温度补偿 ---- */
 function calcPHSlope(testTemp) {
-  return ((testTemp+273.15)/(PH_REFERENCE_TEMP+273.15))*59.16;
+  return SensorMath.phSlope(testTemp,state.phSlopeEfficiency);
 }
 
 function calcPHFromMv(mV,testTemp) {
-  var slope=calcPHSlope(testTemp);
-  return slope>0?7-(mV/slope):7-(mV/59.16);
+  return SensorMath.phFromMv(mV,testTemp,state.phZeroOffset,state.phSlopeEfficiency);
 }
 
 function calcMvFromPH(pH,testTemp) {
-  return (7-pH)*calcPHSlope(testTemp);
+  return SensorMath.mvFromPh(pH,testTemp,state.phZeroOffset,state.phSlopeEfficiency);
 }
 
 function updatePHMvFromReference() {
@@ -1226,10 +1241,10 @@ function genPHData() {
 
 function genPHSignalData() {
   var slope=calcPHSlope(state.phTestTemp);
-  var minMv=-9*slope,maxMv=9*slope,step=(maxMv-minMv)/100;
+  var minMv=state.phZeroOffset-9*slope,maxMv=state.phZeroOffset+9*slope,step=(maxMv-minMv)/100;
   var points=[];
   for(var mV=minMv;mV<=maxMv;mV+=step) points.push(mV);
-  points.push(state.phSimMv);
+  points.push(state.phSimMv, state.phZeroOffset);
   points.sort(function(a,b){return a-b;});
   return points.map(function(mV){
     var pH=calcPHFromMv(mV,state.phTestTemp);
@@ -1238,7 +1253,7 @@ function genPHSignalData() {
 }
 
 /* ---- 图表绘制 ---- */
-function buildChart(ctx, labels, dataVals, refVals, color, isEC, optIdx) {
+function buildChart(ctx, labels, dataVals, refVals, color, isEC, optIdx, existingChart) {
   var xTitle = (optIdx && optIdx.xTitle) ? optIdx.xTitle : '温度(°C)';
   var yTitle = (optIdx && optIdx.yTitle) ? optIdx.yTitle : '';
   var lt=document.body.classList.contains('light-theme');
@@ -1250,11 +1265,12 @@ function buildChart(ctx, labels, dataVals, refVals, color, isEC, optIdx) {
   var pr=[],phr=[],pbg=[],pbc=[],pbw=[];
   var testIdx = (optIdx && optIdx.testIdx !== undefined) ? optIdx.testIdx : -1;
   var refIdx  = (optIdx && optIdx.refIdx !== undefined)  ? optIdx.refIdx  : -1;
-  if (testIdx < 0) {
+  if (!optIdx || optIdx.testIdx === undefined) {
     var testT=isEC?state.testTemp:state.phTestTemp;
     var refT=isEC?state.refTemp:PH_REFERENCE_TEMP;
     labels.forEach(function(t,i){
-      if(t===testT){testIdx=i;}else if(!refIdx||(refIdx<0&&t===refT)){refIdx=i;}
+      if(t===testT) testIdx=i;
+      else if(t===refT) refIdx=i;
     });
     if(refIdx<0) refIdx=-1;
   }
@@ -1279,7 +1295,11 @@ function buildChart(ctx, labels, dataVals, refVals, color, isEC, optIdx) {
       borderColor:lt?'#999':'#666',borderWidth:1.2,borderDash:[6,6],pointRadius:0,fill:false
     });
   }
-  return new Chart(ctx,{type:'line',data:{labels:labels,datasets:datasets},
+  var chartData = {datasets:datasets};
+  chartData.datasets.forEach(function(dataset) {
+    dataset.data = dataset.data.map(function(value, index) { return {x:labels[index], y:value}; });
+  });
+  var config = {type:'line',data:chartData,
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},
@@ -1293,12 +1313,19 @@ function buildChart(ctx, labels, dataVals, refVals, color, isEC, optIdx) {
         }
       },
       scales:{
-        x:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:xTitle,color:tc,font:{size:12,weight:600}}},
+        x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:xTitle,color:tc,font:{size:12,weight:600}}},
         y:{grid:{color:gc},ticks:{color:tc,font:{family:'Inter',size:11}},title:{display:true,text:yTitle,color:tc,font:{size:12,weight:600}}}
       },
       interaction:{mode:'index',intersect:false}
     }
-  });
+  };
+  if (existingChart) {
+    existingChart.data = config.data;
+    existingChart.options = config.options;
+    existingChart.update('none');
+    return existingChart;
+  }
+  return new Chart(ctx, config);
 }
 
 /* ---- 模式配置辅助 ---- */
@@ -1315,7 +1342,6 @@ function getPHModeConfig(d) {
 
 function updateECChart(data) {
   if(typeof Chart==='undefined') return;
-  if(conductivityChart) conductivityChart.destroy();
   var labels=data.map(function(d){return d.temp;});
   var vals,refV,color,legTxt,titleTxt;
   if(state.chartMode==='cond'){var yUnit='μS/cm';
@@ -1331,29 +1357,28 @@ function updateECChart(data) {
     color='rgba(191,90,242,1)';legTxt='实时电阻率';titleTxt='电阻率-温度响应曲线';
     el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
   }else{var yUnit='ppt';
-    vals=data.map(function(d){return d.sal;});refV=data.map(function(){return parseFloat(calcSalinity(state.refCond).toFixed(5));});
+    vals=data.map(function(d){return d.sal;});var refSal=calcSalinity(state.refCond);refV=data.map(function(){return refSal===null?null:parseFloat(refSal.toFixed(5));});
     color='rgba(255,159,10,1)';legTxt='实时盐度';titleTxt='盐度-温度响应曲线';
     el.chartTitle.textContent=titleTxt;el.chartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
   }
   var ctx=document.getElementById('conductivityChart').getContext('2d');
-  conductivityChart=buildChart(ctx,labels,vals,refV,color,true,{yTitle:yUnit});
+  conductivityChart=buildChart(ctx,labels,vals,refV,color,true,{yTitle:yUnit},conductivityChart);
 }
 
 function updateECSignalChart(data) {
   if(typeof Chart==='undefined') return;
-  if(ecSignalChart) ecSignalChart.destroy();
-  var labels=data.map(function(d){return d.signal.toFixed(2);});
-  var cfg=getECModeConfig(data[0]); var yUnit=cfg.yUnit; var color=cfg.color;
-  var vals=data.map(function(d){return getECModeConfig(d).val;});
+  var signalData=data.slice().sort(function(first,second){return first.signal-second.signal;});
+  var labels=signalData.map(function(d){return d.signal/1000;});
+  var cfg=getECModeConfig(signalData[0]); var yUnit=cfg.yUnit; var color=cfg.color;
+  var vals=signalData.map(function(d){return getECModeConfig(d).val;});
   var testIdx=-1,refIdx=-1;
-  data.forEach(function(d,i){if(d.temp===state.testTemp)testIdx=i;if(d.temp===state.refTemp)refIdx=i;});
+  signalData.forEach(function(d,i){if(d.temp===state.testTemp)testIdx=i;if(d.temp===state.refTemp)refIdx=i;});
   var ctx=document.getElementById('ecSignalChart').getContext('2d');
-  ecSignalChart=buildChart(ctx,labels,vals,null,color,true,{testIdx:testIdx,refIdx:refIdx,xTitle:'信号值 (kΩ)',yTitle:yUnit});
+  ecSignalChart=buildChart(ctx,labels,vals,null,color,true,{testIdx:testIdx,refIdx:refIdx,xTitle:'信号值 (kΩ)',yTitle:yUnit},ecSignalChart);
 }
 
 function updatePHChart(data) {
   if(typeof Chart==='undefined') return;
-  if(phChart) phChart.destroy();
   var labels=data.map(function(d){return d.temp;});
   var vals,refV,color,legTxt,titleTxt;
   if(state.phChartMode==='ph'){var yUnit='pH';
@@ -1366,32 +1391,27 @@ function updatePHChart(data) {
     el.phChartTitle.textContent=titleTxt;el.phChartLegend.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 6px '+color+';"></span> '+legTxt+' <span class="dot uncomp"></span> 基准值';
   }
   var ctx=document.getElementById('phChart').getContext('2d');
-  phChart=buildChart(ctx,labels,vals,refV,color,false,{yTitle:yUnit});
+  phChart=buildChart(ctx,labels,vals,refV,color,false,{yTitle:yUnit},phChart);
 }
 
 function updatePHSignalChart(data) {
   if(typeof Chart==='undefined') return;
-  if(phSignalChart) phSignalChart.destroy();
-  var labels=data.map(function(d){return d.mV.toFixed(2);});
+  var labels=data.map(function(d){return d.mV;});
   var cfg=getPHModeConfig(data[0]); var yUnit=cfg.yUnit; var color=cfg.color;
   var vals=data.map(function(d){return getPHModeConfig(d).val;});
   var testIdx=-1,refIdx=-1;
-  data.forEach(function(d,i){if(Math.abs(d.mV-state.phSimMv)<1e-6)testIdx=i;if(Math.abs(d.mV)<1e-6)refIdx=i;});
+  data.forEach(function(d,i){if(Math.abs(d.mV-state.phSimMv)<1e-6)testIdx=i;if(Math.abs(d.mV-state.phZeroOffset)<1e-6)refIdx=i;});
   var ctx=document.getElementById('phSignalChart').getContext('2d');
-  phSignalChart=buildChart(ctx,labels,vals,null,color,false,{testIdx:testIdx,refIdx:refIdx,xTitle:'信号值 (mV)',yTitle:yUnit});
+  phSignalChart=buildChart(ctx,labels,vals,null,color,false,{testIdx:testIdx,refIdx:refIdx,xTitle:'信号值 (mV)',yTitle:yUnit},phSignalChart);
 }
 
 /* ---- 统一更新 ---- */
 function redrawChartsOnly() {
   if(typeof Chart==='undefined' || state.viewMode!=='sim') return;
   if(state.activeFactor==='ec'&&lastECData){
-    if(conductivityChart) conductivityChart.destroy();
-    if(ecSignalChart) ecSignalChart.destroy();
     updateECChart(lastECData);
     updateECSignalChart(lastECData);
   } else if(state.activeFactor==='ph'&&lastPHData){
-    if(phChart) phChart.destroy();
-    if(phSignalChart) phSignalChart.destroy();
     updatePHChart(lastPHData);
     updatePHSignalChart(genPHSignalData());
   }
@@ -1415,12 +1435,12 @@ function updateFormulaCalcs() {
     var elResCalc1 = $('ec-calc-res-1');
     var elResCalcRes = $('ec-calc-res-res');
     if (elResCalc1 && elResCalcRes) {
-      elResCalc1.innerHTML = '&rho;<sub>t</sub> = 1 / (' + compensatedCond.toFixed(2) + ' &times; 10<sup>-6</sup> S/cm)';
+      elResCalc1.innerHTML = '&rho;<sub>t</sub> = 1 / (' + kt.toFixed(2) + ' &times; 10<sup>-6</sup> S/cm)';
       var resStr = '开路';
-      if (compensatedCond > 0.0001) {
-        if (1/compensatedCond >= 1) resStr = (1/compensatedCond).toFixed(3) + ' M&Omega;&middot;cm';
-        else if (1/compensatedCond >= 0.001) resStr = ((1/compensatedCond)*1000).toFixed(1) + ' k&Omega;&middot;cm';
-        else resStr = ((1/compensatedCond)*1000000).toFixed(0) + ' &Omega;&middot;cm';
+      if (kt > 0.0001) {
+        if (1/kt >= 1) resStr = (1/kt).toFixed(3) + ' M&Omega;&middot;cm';
+        else if (1/kt >= 0.001) resStr = ((1/kt)*1000).toFixed(1) + ' k&Omega;&middot;cm';
+        else resStr = ((1/kt)*1000000).toFixed(0) + ' &Omega;&middot;cm';
       }
       elResCalcRes.innerHTML = '&rho;<sub>t</sub> = ' + resStr;
     }
@@ -1441,7 +1461,7 @@ function updateFormulaCalcs() {
 
     var elSalCalcRes = $('ec-calc-sal-res');
     if (elSalCalcRes) {
-      elSalCalcRes.innerHTML = 'Salinity = ' + sal.toFixed(4) + ' ppt';
+      elSalCalcRes.innerHTML = 'Salinity = ' + (sal===null?'超出经验表范围':sal.toFixed(4) + ' ppt');
     }
   } else {
     var slope = calcPHSlope(state.phTestTemp);
@@ -1452,7 +1472,7 @@ function updateFormulaCalcs() {
     var elSlopeCalc1 = $('ph-calc-slope-1');
     var elSlopeCalcRes = $('ph-calc-slope-res');
     if (elSlopeCalc1 && elSlopeCalcRes) {
-      elSlopeCalc1.innerHTML = 'S = ((' + state.phTestTemp.toFixed(1) + ' + 273.15) / (25.0 + 273.15)) &times; 59.16';
+      elSlopeCalc1.innerHTML = 'S = ((' + state.phTestTemp.toFixed(1) + ' + 273.15) / 298.15) &times; 59.16 &times; ' + (state.phSlopeEfficiency/100).toFixed(3);
       elSlopeCalcRes.innerHTML = 'S = ' + slope.toFixed(2) + ' mV/pH';
     }
 
@@ -1466,8 +1486,8 @@ function updateFormulaCalcs() {
     var elPhtCalc1 = $('ph-calc-pht-1');
     var elPhtCalcRes = $('ph-calc-pht-res');
     if (elPhtCalc1 && elPhtCalcRes) {
-      elPhtCalc1.innerHTML = 'pH<sub>ref</sub> = 7.00 - (' + mV.toFixed(2) + ' / ' + slope.toFixed(2) + ')';
-      elPhtCalcRes.innerHTML = 'pH<sub>ref</sub> = ' + pHtClamped.toFixed(2) + ' pH';
+      elPhtCalc1.innerHTML = 'pH<sub>t</sub> = 7.00 - ((' + mV.toFixed(2) + ' - ' + state.phZeroOffset.toFixed(2) + ') / ' + slope.toFixed(2) + ')';
+      elPhtCalcRes.innerHTML = 'pH<sub>t</sub> = ' + pHtClamped.toFixed(2) + ' pH';
     }
 
     var elHconcCalc1 = $('ph-calc-hconc-1');
@@ -1482,7 +1502,7 @@ function updateFormulaCalcs() {
 function saveState() {
   try {
     var consent = localStorage.getItem('cookie_consent_choice');
-    if (consent === 'declined') return;
+    if (consent !== 'accepted') return;
     state.theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
     localStorage.setItem('sensor_calib_state', JSON.stringify(state));
   } catch (e) {
@@ -1492,14 +1512,40 @@ function saveState() {
 
 function loadSavedState() {
   try {
+    if (localStorage.getItem('cookie_consent_choice') !== 'accepted') return;
     var saved = localStorage.getItem('sensor_calib_state');
     if (saved) {
       var parsed = JSON.parse(saved);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+      var numberRanges = {
+        kCell:[0.001,100], alpha:[0,10], simResistance:[0.01,99999999],
+        simConductivity:[0,99999999], refTemp:[25,25], testTemp:[-10,150],
+        tdsFactor:[0.3,1], refCond:[0,99999999],
+        tempStart:[0,0], tempEnd:[100,100], tempStep:[1,1],
+        phSimMv:[-1200,1200], phSimRef:[-2,16], phTestTemp:[-10,150],
+        phZeroOffset:[-1200,1200], phSlopeEfficiency:[1,120],
+        phTempStart:[0,0], phTempEnd:[100,100], phTempStep:[1,1]
+      };
+      var choices = {
+        activeFactor:['ec','ph','modbus'], viewMode:['sim','formula'], theme:['light','dark'],
+        simResUnit:['ohm','kohm'], simCondInputUnit:['uS/cm','mS/cm'], simMode:['res','cond'],
+        condUnit:['uS/cm'], chartMode:['cond','tds','res','sal'], phChartMode:['ph','hconc'],
+        modbusProtocol:['rtu','tcp'], lastModbusActivePanel:['','tx','rx','data']
+      };
       for (var k in parsed) {
         if (parsed.hasOwnProperty(k) && state.hasOwnProperty(k)) {
-          state[k] = parsed[k];
+          var value = parsed[k];
+          if (numberRanges[k] && typeof value === 'number' && Number.isFinite(value) && value >= numberRanges[k][0] && value <= numberRanges[k][1]) state[k] = value;
+          else if (choices[k] && choices[k].includes(value)) state[k] = value;
+          else if (['modbusTx','modbusRx','modbusData'].includes(k) && typeof value === 'string' && value.length < 10000) state[k] = value;
         }
       }
+      if (!validECModel(state.alpha, state.testTemp)) {
+        state.alpha = 2;
+        state.testTemp = 25;
+      }
+      if (state.activeFactor === 'modbus') state.viewMode = 'sim';
+      updateK25FromSimulation();
     }
   } catch (e) {
     console.warn('加载本地存储失败', e);
@@ -1532,11 +1578,6 @@ function syncStateToDOM() {
       b.classList.toggle('active', b.getAttribute('data-mode') === state.chartMode);
     });
   }
-  if (el.chartModeButtons) {
-    el.chartModeButtons.forEach(function(b) {
-      b.classList.toggle('active', b.getAttribute('data-mode') === state.chartMode);
-    });
-  }
   if (el.phChartModeButtons) {
     el.phChartModeButtons.forEach(function(b) {
       b.classList.toggle('active', b.getAttribute('data-mode') === state.phChartMode);
@@ -1553,6 +1594,8 @@ function syncStateToDOM() {
   if (el.phSimMvInput) el.phSimMvInput.value = state.phSimMv.toFixed(2);
   if (el.phSimRefInput) el.phSimRefInput.value = state.phSimRef.toFixed(2);
   if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
+  if (el.phZeroOffsetInput) el.phZeroOffsetInput.value = state.phZeroOffset.toFixed(2);
+  if (el.phSlopeEfficiencyInput) el.phSlopeEfficiencyInput.value = state.phSlopeEfficiency.toFixed(1);
 
   if ($('modbus-tx-input')) $('modbus-tx-input').value = state.modbusTx || '';
   if ($('modbus-rx-input')) $('modbus-rx-input').value = state.modbusRx || '';
@@ -1585,6 +1628,7 @@ function syncStateToDOM() {
 
 function globalUpdate() {
   if(state.activeFactor==='ec'){
+    if(!validECModel(state.alpha, state.testTemp)) return;
     updateSimulationValues();
     var d=genECData();
     if(typeof Chart!=='undefined' && state.viewMode==='sim'){
@@ -1592,7 +1636,7 @@ function globalUpdate() {
       updateECSignalChart(d);
     }
     updateECReadout();
-  } else {
+  } else if(state.activeFactor==='ph') {
     updatePHSimulationValues();
     var d=genPHData();
     if(typeof Chart!=='undefined' && state.viewMode==='sim'){
@@ -1600,7 +1644,7 @@ function globalUpdate() {
       updatePHSignalChart(genPHSignalData());
     }
   }
-  updateFormulaCalcs();
+  if(state.activeFactor!=='modbus') updateFormulaCalcs();
   saveState();
 }
 
@@ -1639,16 +1683,31 @@ function bindPreset(inp,sel,prop,prec,onStateChange) {
   if(!inp||!sel) return;
   sel.addEventListener('change',function(e){
     var v=e.target.value;
-    if(v!=='custom'){var n=parseFloat(v);inp.value=n.toFixed(prec);state[prop]=n;if(onStateChange)onStateChange();globalUpdate();}
+    if(v!=='custom'){
+      var n=Number(v);
+      if (!validNumericInput(inp,n,true) || ((prop==='alpha'||prop==='testTemp') && !validECModel(prop==='alpha'?n:state.alpha,prop==='testTemp'?n:state.testTemp))) {
+        sel.value='custom';inp.setAttribute('aria-invalid','true');return;
+      }
+      inp.removeAttribute('aria-invalid');inp.value=n.toFixed(prec);state[prop]=n;if(onStateChange)onStateChange();globalUpdate();
+    }
   });
   inp.addEventListener('input',function(e){
-    var n=parseFloat(e.target.value);if(isNaN(n)) return;state[prop]=n;
+    var n=Number(e.target.value);
+    if (!validNumericInput(inp,n) || ((prop==='alpha'||prop==='testTemp') && !validECModel(prop==='alpha'?n:state.alpha,prop==='testTemp'?n:state.testTemp))) {
+      inp.setAttribute('aria-invalid','true');return;
+    }
+    inp.removeAttribute('aria-invalid');state[prop]=n;
     var f=false;
     for(var i=0;i<sel.options.length;i++){var ov=sel.options[i].value;if(ov!=='custom'&&Math.abs(parseFloat(ov)-n)<1e-4){sel.value=ov;f=true;break;}}
     if(!f) sel.value='custom';
     if(onStateChange)onStateChange();
     globalUpdate();
   });
+}
+function validNumericInput(input, value, allowEmpty) {
+  return (allowEmpty || input.value !== '') && Number.isFinite(value) &&
+    (input.min === '' || value >= Number(input.min)) &&
+    (input.max === '' || value <= Number(input.max));
 }
 bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3,retainResistanceBoxInput);
 bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2,retainResistanceBoxInput);
@@ -1657,15 +1716,52 @@ bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
 bindPreset(el.phSimMvInput,el.phSimMvPresetSelect,'phSimMv',2);
 bindPreset(el.phSimRefInput,el.phSimRefPresetSelect,'phSimRef',2,function(){updatePHMvFromReference();});
 bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
+function bindNumericInput(input, property, afterChange) {
+  input.addEventListener('input',function(){
+    var value=Number(input.value);
+    if (!validNumericInput(input,value)) { input.setAttribute('aria-invalid','true'); return; }
+    input.removeAttribute('aria-invalid');
+    state[property]=value;
+    if (afterChange) afterChange();
+    globalUpdate();
+  });
+}
+bindNumericInput(el.phZeroOffsetInput,'phZeroOffset');
+bindNumericInput(el.phSlopeEfficiencyInput,'phSlopeEfficiency');
+if ($('ph-calibrate')) $('ph-calibrate').addEventListener('click',function() {
+  var points=[];
+  var result=$('ph-calibration-result');
+  for (var index=1;index<=3;index++) {
+    var phInput=$('ph-cal-ph-'+index),mvInput=$('ph-cal-mv-'+index);
+    if (index===3 && phInput.value==='' && mvInput.value==='') continue;
+    var phValue=Number(phInput.value),mvValue=Number(mvInput.value);
+    if (!validNumericInput(phInput,phValue) || !validNumericInput(mvInput,mvValue)) {
+      result.textContent='请填写有效的标定点 pH 与 mV；第三点可同时留空。';return;
+    }
+    points.push({ph:phValue,mv:mvValue});
+  }
+  var fit=SensorMath.fitPhCalibration(points,state.phTestTemp);
+  if (!fit) {result.textContent='标定点的 pH 必须不同。';return;}
+  var offset=fit.offset,efficiency=fit.efficiency;
+  if (!Number.isFinite(offset) || offset<-1200 || offset>1200 || !Number.isFinite(efficiency) || efficiency<1 || efficiency>120) {
+    result.textContent='标定结果超出可用范围，请检查电极接线和测点数据。';return;
+  }
+  state.phZeroOffset=offset;
+  state.phSlopeEfficiency=efficiency;
+  el.phZeroOffsetInput.value=offset.toFixed(2);
+  el.phSlopeEfficiencyInput.value=efficiency.toFixed(2);
+  result.textContent='零点 '+offset.toFixed(2)+' mV；斜率效率 '+efficiency.toFixed(2)+'%；最大残差 '+fit.residual.toFixed(2)+' mV。';
+  globalUpdate();
+});
 
-el.simResistanceInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<=0.001)return;state.simMode='res';state.simResistance=v;updateK25FromSimulation();globalUpdate();});
+el.simResistanceInput.addEventListener('input',function(e){var v=Number(e.target.value);if(!validNumericInput(el.simResistanceInput,v)){el.simResistanceInput.setAttribute('aria-invalid','true');return;}el.simResistanceInput.removeAttribute('aria-invalid');state.simMode='res';state.simResistance=v;updateK25FromSimulation();globalUpdate();});
 el.simResUnitSelect.addEventListener('change',function(e){
   var rOhm=state.simResUnit==='kohm'?state.simResistance*1000:state.simResistance;
   state.simResUnit=e.target.value;
   state.simResistance=state.simResUnit==='kohm'?rOhm/1000:rOhm;
   globalUpdate();
 });
-el.simConductivityInput.addEventListener('input',function(e){var v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;state.simMode='cond';state.simConductivity=v;state.refCond=state.simCondInputUnit==='mS/cm'?v*1000:v;globalUpdate();});
+el.simConductivityInput.addEventListener('input',function(e){var v=Number(e.target.value);if(!validNumericInput(el.simConductivityInput,v)){el.simConductivityInput.setAttribute('aria-invalid','true');return;}el.simConductivityInput.removeAttribute('aria-invalid');state.simMode='cond';state.simConductivity=v;updateK25FromSimulation();globalUpdate();});
 el.simCondUnitSelect.addEventListener('change',function(e){
   var kUs=state.simCondInputUnit==='mS/cm'?state.simConductivity*1000:state.simConductivity;
   state.simCondInputUnit=e.target.value;
@@ -1721,11 +1817,13 @@ var modbusEl = {
   rxInput: $('modbus-rx-input'), rxBtn: $('btn-parse-rx'), rxRes: $('modbus-rx-result')
 };
 
-function cleanHexStr(str) { return str.replace(/[^0-9A-Fa-f]/g, '').toUpperCase(); }
+function cleanHexStr(str) {
+  var compact = str.replace(/[\s,;:_-]+/g, '');
+  return /^[0-9a-f]*$/i.test(compact) ? compact.toUpperCase() : null;
+}
 function removeLogPrefix(str) {
   str = str.trim();
-  // 匹配类似 Tx:000004- 或 [RX] - 这样的前缀，直到第一个16进制字符前
-  return str.replace(/^.*?(?:tx|rx|send|recv|发送|接收)[^0-9a-f]*\d*[^0-9a-f]+/i, '').trim();
+  return str.replace(/^(?:\[\s*(?:tx|rx)\s*\]|(?:tx|rx|send|recv|发送|接收))\s*[:：-]?\s*(?:\d{1,8}\s*[-:]\s*)?/i, '').trim();
 }
 function hex2(num) { return ('00'+num.toString(16)).slice(-2).toUpperCase(); }
 function calcCrc16(bytes) {
@@ -1797,10 +1895,47 @@ function renderModbusResult(container, blocks, tableRows) {
 
 function parseModbusMessage(hexStr, isTx) {
   var isTcp = modbusEl.proto.value === 'tcp';
+  if (hexStr === null) return {err:'❌ 包含非十六进制字符，请检查输入。'};
   if(hexStr.length < (isTcp ? 14 : 8) || hexStr.length % 2 !== 0) {
     return { err: '❌ 报文格式错误或长度不足。请输入完整的 Hex 字符串。' };
   }
   var bytes = []; for(var i=0; i<hexStr.length; i+=2) bytes.push(parseInt(hexStr.substr(i,2), 16));
+  if (isTcp) {
+    var mbapLength = (bytes[4]<<8) | bytes[5];
+    if (bytes[2] !== 0 || bytes[3] !== 0 || mbapLength !== bytes.length-6 || mbapLength < 3) {
+      return {err:'❌ MBAP 协议标识符或声明长度与实际报文不符。'};
+    }
+  }
+  var offset = isTcp ? 6 : 0;
+  var dataEndCheck = isTcp ? bytes.length : bytes.length-2;
+  var func = bytes[offset+1];
+  var baseFuncCheck = func & 0x7F;
+  var pduDataLenCheck = dataEndCheck-offset-2;
+  var minDataLen = (func & 0x80) ? 1 :
+    isTx ? ([1,2,3,4,5,6,15,16].includes(baseFuncCheck) ? 4 : 0) :
+    ([1,2,3,4].includes(baseFuncCheck) ? 1 : [5,6,15,16].includes(baseFuncCheck) ? 4 : 0);
+  if (pduDataLenCheck < minDataLen || ((func & 0x80) && pduDataLenCheck !== 1)) {
+    return {err:'❌ 功能码的数据区长度不足或异常响应格式错误。'};
+  }
+  if (!(func & 0x80)) {
+    if (isTx && [1,2,3,4,5,6,15,16].includes(baseFuncCheck) && pduDataLenCheck < 4) return {err:'❌ 请求报文数据区不足。'};
+    if (isTx && [15,16].includes(baseFuncCheck)) {
+      var declaredTxBytes = bytes[offset+6];
+      var requestedCount = (bytes[offset+4]<<8)|bytes[offset+5];
+      var expectedTxBytes = baseFuncCheck===15 ? Math.ceil(requestedCount/8) : requestedCount*2;
+      var writeLimit = baseFuncCheck===15 ? 1968 : 123;
+      if (pduDataLenCheck < 5 || requestedCount < 1 || requestedCount > writeLimit || declaredTxBytes !== expectedTxBytes || pduDataLenCheck !== 5+declaredTxBytes) return {err:'❌ 写入数量与数据字节数不匹配。'};
+    }
+    if (isTx && [1,2,3,4].includes(baseFuncCheck)) {
+      var readCount = (bytes[offset+4]<<8)|bytes[offset+5];
+      var readLimit = baseFuncCheck<=2 ? 2000 : 125;
+      if (readCount<1 || readCount>readLimit) return {err:'❌ 读取数量超出功能码允许范围。'};
+    }
+    if (isTx && baseFuncCheck===5 && !((bytes[offset+4]===0xFF || bytes[offset+4]===0x00) && bytes[offset+5]===0x00)) return {err:'❌ 单线圈写入值应为 FF00 或 0000。'};
+    if (!isTx && [1,2,3,4].includes(baseFuncCheck) && pduDataLenCheck !== 1+bytes[offset+2]) return {err:'❌ 响应字节数与数据长度不匹配。'};
+    if (!isTx && [3,4].includes(baseFuncCheck) && bytes[offset+2]%2!==0) return {err:'❌ 寄存器响应必须包含完整的双字节数据。'};
+    if (((isTx && [1,2,3,4,5,6].includes(baseFuncCheck)) || (!isTx && [5,6,15,16].includes(baseFuncCheck))) && pduDataLenCheck !== 4) return {err:'❌ 功能码的数据区长度不正确。'};
+  }
   
   var blocks = []; var rows = [];
   var pduOffset = 0;
@@ -1947,6 +2082,7 @@ function parseModbusMessage(hexStr, isTx) {
       blocks.push({type:crcBlock, hex:hex2(rcvCrc[0]), label:'校验低', desc:'CRC Lo'});
       blocks.push({type:crcBlock, hex:hex2(rcvCrc[1]), label:'校验高', desc:'CRC Hi'});
       rows.push({hex: hex2(rcvCrc[0])+' '+hex2(rcvCrc[1]), desc: 'CRC-16 校验码: ' + (crcOk ? '校验通过 ✅' : '校验失败 ❌ (预期: '+hex2(expCrc[0])+' '+hex2(expCrc[1])+')')});
+      if (!crcOk) return {err:'❌ CRC 校验失败，预期 '+hex2(expCrc[0])+' '+hex2(expCrc[1])+'。'};
     } else {
       rows.push({hex: 'MISSING', desc: '⚠️ 未找到 CRC 校验码 (报文长度不足)'});
     }
@@ -1963,10 +2099,10 @@ if($('btn-parse-data')) {
     if(modbusEl.rxRes) { modbusEl.rxRes.innerHTML = ''; modbusEl.rxRes.classList.remove('active'); }
     if($('modbus-data-result')) $('modbus-data-result').classList.add('active');
     
-    var raw = $('modbus-data-input').value.replace(/[^0-9A-Fa-f]/g, '');
+    var raw = cleanHexStr($('modbus-data-input').value);
     var tbody = $('modbus-data-results');
-    if(raw.length !== 4 && raw.length !== 8) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">请完整输入 2 字节 (4个字符) 或 4 字节 (8个字符) 的 Hex 数据</td></tr>';
+    if(raw === null || (raw.length !== 4 && raw.length !== 8)) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">请输入有效的 2 字节或 4 字节十六进制数据</td></tr>';
       return;
     }
     var is32 = raw.length === 8;
@@ -2109,6 +2245,7 @@ function initCookieConsent() {
     btnAccept.addEventListener('click', function() {
       try {
         localStorage.setItem('cookie_consent_choice', 'accepted');
+        saveState();
       } catch (e) {}
       banner.classList.remove('show');
     });
@@ -2118,6 +2255,7 @@ function initCookieConsent() {
     btnDecline.addEventListener('click', function() {
       try {
         localStorage.setItem('cookie_consent_choice', 'declined');
+        localStorage.removeItem('sensor_calib_state');
       } catch (e) {}
       banner.classList.remove('show');
     });
