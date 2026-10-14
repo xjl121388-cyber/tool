@@ -34,8 +34,14 @@
   function phBranchForMv(millivolts, testTemperature, calibration) {
     var split = phSplit(calibration, testTemperature);
     var slope1 = phSlopeAtTemperature(calibration.slope1, testTemperature);
-    var boundaryMv = calibration.offset1 + (7 - split) * slope1;
-    return millivolts >= boundaryMv ? 1 : 2;
+    var slope2 = phSlopeAtTemperature(calibration.slope2, testTemperature);
+    var ph1 = 7 - (millivolts - calibration.offset1) / slope1;
+    var ph2 = 7 - (millivolts - calibration.offset2) / slope2;
+    var acidSide = ph1 <= split;
+    var alkalineSide = ph2 > split;
+    if (acidSide !== alkalineSide) return acidSide ? 1 : 2;
+    if (acidSide) return 1;
+    return Math.abs(ph1 - split) <= Math.abs(ph2 - split) ? 1 : 2;
   }
 
   function phFromMv(millivolts, testTemperature, calibration) {

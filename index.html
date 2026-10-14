@@ -696,9 +696,9 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           <div class="form-group">
             <div class="label-wrapper"><label>标定温度下的分段参数</label><span class="static-hint">酸侧 / 碱侧</span></div>
             <div class="calibration-grid">
-              <label for="ph-slope-1">斜率一 (K1，倍数)<input type="number" id="ph-slope-1" value="1.000" min="0.01" max="2" step="0.001"></label>
+              <label for="ph-slope-1">斜率一 (K1，倍数)<input type="number" id="ph-slope-1" value="1.000" min="-2" max="2" step="0.001"></label>
               <label for="ph-offset-1">偏移一 (mV)<input type="number" id="ph-offset-1" value="0" min="-1200" max="1200" step="0.01"></label>
-              <label for="ph-slope-2">斜率二 (K2，倍数)<input type="number" id="ph-slope-2" value="1.000" min="0.01" max="2" step="0.001"></label>
+              <label for="ph-slope-2">斜率二 (K2，倍数)<input type="number" id="ph-slope-2" value="1.000" min="-2" max="2" step="0.001"></label>
               <label for="ph-offset-2">偏移二 (mV)<input type="number" id="ph-offset-2" value="0" min="-1200" max="1200" step="0.01"></label>
             </div>
           </div>
@@ -715,7 +715,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             <button type="button" id="ph-calibrate">计算标定参数</button>
             <p class="model-note" id="ph-calibration-result" role="status">三个缓冲液测点须在标定温度下测得；相邻两点分别计算斜率一/偏移一、斜率二/偏移二。</p>
           </div>
-          <p class="model-note">斜率一/二是相对理想电极的倍数，默认 1.000；在标定温度求得 K1/K2，测试时按当前温度换算 mV/pH，原始 mV 保持不变。偏移默认 0 mV；温补不代表样品 pH 换算到 25°C。</p>
+          <p class="model-note">斜率一/二是相对理想电极的倍数，默认 1.000；负值表示电势极性反向，不能为 0。两段符号相反时，同一 mV 可能对应多个 pH。在标定温度求得 K1/K2，测试时按当前温度换算 mV/pH，原始 mV 保持不变。偏移默认 0 mV；温补不代表样品 pH 换算到 25°C。</p>
         </div>
       </div>
       
@@ -1536,7 +1536,7 @@ function loadSavedState() {
         tdsFactor:[0.3,1], refCond:[0,99999999],
         tempStart:[0,0], tempEnd:[100,100], tempStep:[1,1],
         phSimMv:[-1200,1200], phSimRef:[-2,16], phTestTemp:[-10,150], phCalTemp:[-10,150],
-        phSlope1:[0.01,2], phOffset1:[-1200,1200], phSlope2:[0.01,2], phOffset2:[-1200,1200],
+        phSlope1:[-2,2], phOffset1:[-1200,1200], phSlope2:[-2,2], phOffset2:[-1200,1200],
         phTempStart:[0,0], phTempEnd:[100,100], phTempStep:[1,1]
       };
       var choices = {
@@ -1548,7 +1548,7 @@ function loadSavedState() {
       for (var k in parsed) {
         if (parsed.hasOwnProperty(k) && state.hasOwnProperty(k)) {
           var value = parsed[k];
-          if (numberRanges[k] && typeof value === 'number' && Number.isFinite(value) && value >= numberRanges[k][0] && value <= numberRanges[k][1]) state[k] = value;
+          if (numberRanges[k] && typeof value === 'number' && Number.isFinite(value) && value >= numberRanges[k][0] && value <= numberRanges[k][1] && (!/^phSlope[12]$/.test(k) || validPhSlope(value))) state[k] = value;
           else if (choices[k] && choices[k].includes(value)) state[k] = value;
           else if (['modbusTx','modbusRx','modbusData'].includes(k) && typeof value === 'string' && value.length < 10000) state[k] = value;
         }
@@ -1556,9 +1556,9 @@ function loadSavedState() {
       if (parsed.phSlopeUnit !== 'ratio') {
         [1,2].forEach(function(branch){
           var oldSlope=parsed['phSlope'+branch];
-          if (typeof oldSlope==='number' && Number.isFinite(oldSlope) && oldSlope>=0.01 && oldSlope<=120) {
+          if (typeof oldSlope==='number' && Number.isFinite(oldSlope) && Math.abs(oldSlope)>=0.01 && Math.abs(oldSlope)<=120) {
             var ratio=oldSlope/SensorMath.phIdealSlope(state.phCalTemp);
-            if (ratio>=0.01 && ratio<=2) state['phSlope'+branch]=ratio;
+            if (validPhSlope(ratio)) state['phSlope'+branch]=ratio;
           }
         });
       }
@@ -1762,7 +1762,7 @@ bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
 function bindNumericInput(input, property, afterChange) {
   input.addEventListener('input',function(){
     var value=Number(input.value);
-    if (!validNumericInput(input,value)) { input.setAttribute('aria-invalid','true'); return; }
+    if (!validNumericInput(input,value) || (/^phSlope[12]$/.test(property) && !validPhSlope(value))) { input.setAttribute('aria-invalid','true'); return; }
     input.removeAttribute('aria-invalid');
     state[property]=value;
     if (afterChange) afterChange();
@@ -1777,10 +1777,13 @@ bindNumericInput(el.phSlope1Input,'phSlope1',useManualPhCalibration);
 bindNumericInput(el.phOffset1Input,'phOffset1',useManualPhCalibration);
 bindNumericInput(el.phSlope2Input,'phSlope2',useManualPhCalibration);
 bindNumericInput(el.phOffset2Input,'phOffset2',useManualPhCalibration);
+function validPhSlope(slope) {
+  return Number.isFinite(slope) && Math.abs(slope)>=0.01 && Math.abs(slope)<=2;
+}
 function validPhFit(fit) {
   return fit && [1,2].every(function(branch){
     var slope=fit['slope'+branch],offset=fit['offset'+branch];
-    return Number.isFinite(slope) && slope>=0.01 && slope<=2 &&
+    return validPhSlope(slope) &&
       Number.isFinite(offset) && offset>=-1200 && offset<=1200;
   });
 }
