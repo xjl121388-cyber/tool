@@ -15,39 +15,58 @@
     return factor > 0 ? conductivity / factor : NaN;
   }
 
-  function phSlope(temperature, efficiency) {
-    return 59.16 * (temperature + 273.15) / 298.15 * efficiency / 100;
+  function phSlopeAtTemperature(calibrationSlope, calibrationTemperature, testTemperature) {
+    return calibrationSlope * (testTemperature + 273.15) / (calibrationTemperature + 273.15);
   }
 
-  function phFromMv(millivolts, temperature, offset, efficiency) {
-    return 7 - (millivolts - offset) / phSlope(temperature, efficiency);
+  function phSplit(calibration, calibrationTemperature, testTemperature) {
+    var slope1 = phSlopeAtTemperature(calibration.slope1, calibrationTemperature, testTemperature);
+    var slope2 = phSlopeAtTemperature(calibration.slope2, calibrationTemperature, testTemperature);
+    if (Math.abs(slope1 - slope2) < 1e-8) return 7;
+    var split = 7 - (calibration.offset2 - calibration.offset1) / (slope1 - slope2);
+    return split >= -2 && split <= 16 ? split : 7;
   }
 
-  function mvFromPh(ph, temperature, offset, efficiency) {
-    return offset + (7 - ph) * phSlope(temperature, efficiency);
+  function phBranchForMv(millivolts, calibrationTemperature, testTemperature, calibration) {
+    var split = phSplit(calibration, calibrationTemperature, testTemperature);
+    var slope1 = phSlopeAtTemperature(calibration.slope1, calibrationTemperature, testTemperature);
+    var boundaryMv = calibration.offset1 + (7 - split) * slope1;
+    return millivolts >= boundaryMv ? 1 : 2;
   }
 
-  function fitPhCalibration(points, temperature) {
-    var meanPhDistance = points.reduce(function (sum, point) { return sum + 7 - point.ph; }, 0) / points.length;
-    var meanMv = points.reduce(function (sum, point) { return sum + point.mv; }, 0) / points.length;
-    var variance = points.reduce(function (sum, point) { return sum + Math.pow(7 - point.ph - meanPhDistance, 2); }, 0);
-    if (variance < 1e-8) return null;
-    var slope = points.reduce(function (sum, point) {
-      return sum + (7 - point.ph - meanPhDistance) * (point.mv - meanMv);
-    }, 0) / variance;
-    var offset = meanMv - slope * meanPhDistance;
-    var efficiency = 100 * slope / phSlope(temperature, 100);
-    var residual = points.reduce(function (maximum, point) {
-      return Math.max(maximum, Math.abs(point.mv - offset - slope * (7 - point.ph)));
-    }, 0);
-    return {offset:offset, efficiency:efficiency, residual:residual};
+  function phFromMv(millivolts, calibrationTemperature, testTemperature, calibration) {
+    var branch = phBranchForMv(millivolts, calibrationTemperature, testTemperature, calibration);
+    var slope = phSlopeAtTemperature(calibration['slope' + branch], calibrationTemperature, testTemperature);
+    return 7 - (millivolts - calibration['offset' + branch]) / slope;
+  }
+
+  function mvFromPh(ph, calibrationTemperature, testTemperature, calibration) {
+    var branch = ph <= phSplit(calibration, calibrationTemperature, testTemperature) ? 1 : 2;
+    var slope = phSlopeAtTemperature(calibration['slope' + branch], calibrationTemperature, testTemperature);
+    return calibration['offset' + branch] + (7 - ph) * slope;
+  }
+
+  function fitPhCalibration(points) {
+    if (points.length !== 3) return null;
+    var sorted = points.slice().sort(function (first, second) { return first.ph - second.ph; });
+    if (sorted[0].ph >= sorted[1].ph || sorted[1].ph >= sorted[2].ph) return null;
+    var slope1 = (sorted[0].mv - sorted[1].mv) / (sorted[1].ph - sorted[0].ph);
+    var slope2 = (sorted[1].mv - sorted[2].mv) / (sorted[2].ph - sorted[1].ph);
+    return {
+      slope1:slope1,
+      offset1:sorted[1].mv - (7 - sorted[1].ph) * slope1,
+      slope2:slope2,
+      offset2:sorted[1].mv - (7 - sorted[1].ph) * slope2
+    };
   }
 
   globalThis.SensorMath = {
     temperatureFactor:temperatureFactor,
     conductivityAtTemperature:conductivityAtTemperature,
     referenceConductivity:referenceConductivity,
-    phSlope:phSlope,
+    phSlopeAtTemperature:phSlopeAtTemperature,
+    phSplit:phSplit,
+    phBranchForMv:phBranchForMv,
     phFromMv:phFromMv,
     mvFromPh:mvFromPh,
     fitPhCalibration:fitPhCalibration
