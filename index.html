@@ -626,12 +626,16 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             </div>
           </div>
           <div class="form-group">
-            <div class="label-wrapper"><label>电导率多点校准</label><span class="static-hint">最多 10 点 · 25°C 基准</span></div>
-            <div class="ec-calibration-row"><span>点</span><span>参考电导率 (µS/cm)</span><span>信号电阻 (Ω)</span></div>
+            <div class="label-wrapper"><label for="ec-cal-temp-input">标定温度 (t<sub>cal</sub>)</label><span class="static-hint">°C</span></div>
+            <input type="number" id="ec-cal-temp-input" value="25.0" min="-10" max="150" step="0.1">
+          </div>
+          <div class="form-group">
+            <div class="label-wrapper"><label>电导率多点校准</label><span class="static-hint">最多 10 点</span></div>
+            <div class="ec-calibration-row"><span>点</span><span>25°C 参考值 (µS/cm)</span><span>标定电阻 (Ω)</span></div>
             <div id="ec-calibration-inputs"></div>
             <button type="button" id="ec-calibrate">计算标定曲线</button>
             <button type="button" id="ec-clear-calibration">清除标定</button>
-            <p class="model-note" id="ec-calibration-result" role="status">第 1 点必填，建议使用纯水的实测参考值；其余点 (0, 0) 不参与。未标定时使用电极常数换算。</p>
+            <p class="model-note" id="ec-calibration-result" role="status">第 1 点必填，建议使用纯水的 25°C 参考值；其余点 (0, 0) 不参与。输入的电阻须在标定温度下取得。</p>
           </div>
         </div>
         <div class="card glass readout-card">
@@ -820,18 +824,20 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           <h3>一、基础物理换算</h3>
           
           <div class="formula-block">
-            <p><strong>1. 等效电阻与电导率转换：</strong>启用多点标定后，以电导 $1/R$ 为横轴，用 PCHIP 插值得到当前温度电导率；未标定时按电极常数换算。</p>
-            <div class="math-display">$$ G=\frac{1}{R_{sim}},\quad K_t=\operatorname{PCHIP}(G;G_i,K_i)\quad\text{或}\quad K_t=\frac{K_{cell}}{R_{sim}}\times10^6 $$</div>
+            <p><strong>1. 等效电阻与电导率转换：</strong>先将 25°C 标准值换算到标定温度，再以电导 $1/R$ 为横轴用 PCHIP 插值；未标定时按电极常数换算。</p>
+            <div class="math-display">$$ K_{i,cal}=K_{i,25}\left[1+\frac{\alpha}{100}(t_{cal}-25)\right],\quad G=\frac{1}{R_{sim}},\quad K_t=\operatorname{PCHIP}(G;G_i,K_{i,cal}) $$</div>
             <div class="math-legend">
               <p>其中：</p>
               <ul>
                 <li><span class="sym">$K_t$</span>：当前温度下的实际电导率，单位为 $\mu S/cm$</li>
                 <li><span class="sym">$K_{cell}$</span>：电极常数（Cell Constant），通常为 $0.01, 0.1, 1.0$ 等，单位为 $cm^{-1}$</li>
                 <li><span class="sym">$R_{sim}$</span>：等效模拟阻值，即传感器测量到的物理电阻，单位为 $\Omega$</li>
-                <li><span class="sym">$(G_i,K_i)$</span>：25°C 下标定的电导与参考电导率；曲线在端点外不外推</li>
+                <li><span class="sym">$(G_i,K_{i,25})$</span>：标定温度下测得的电导及对应标准液的 25°C 参考电导率；曲线在端点外不外推</li>
+                <li><span class="sym">$t_{cal}$</span>：校准时的温度，单位为 $^\circ C$</li>
               </ul>
             </div>
           </div>
+          <div class="formula-block"><p>未标定时使用 $K_t=K_{cell}/R_{sim}\times10^6$。</p></div>
           
           <div class="formula-block">
             <p><strong>2. 物理电阻率：</strong></p>
@@ -1069,7 +1075,7 @@ var state = {
   activeFactor: 'ec', viewMode: 'sim', theme: 'light',
   kCell: 1.0, alpha: 2.0, simResistance: 20000, simResUnit: 'ohm',
   simConductivity: 50.00, simCondInputUnit: 'uS/cm', simMode: 'res',
-  refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
+  refTemp: 25.0, testTemp: 25.0, ecCalTemp: 25.0, tdsFactor: 0.50,
   refCond: 50.00, condUnit: 'uS/cm', ecCalibrationPoints: null,
   tempStart: 0, tempEnd: 100, tempStep: 1, chartMode: 'cond',
   phSimMv: 0.0, phSimRef: 7.00, phSlope1: 1, phOffset1: 0, phSlope2: 1, phOffset2: 0, phSlopeUnit: 'ratio',
@@ -1088,7 +1094,7 @@ var el = {
   simResCalcCond: $('sim-res-calc-cond'),
   simConductivityInput: $('sim-conductivity'), simCondUnitSelect: $('sim-cond-unit'),
   simCondCalcRes: $('sim-cond-calc-res'),
-  ecCalibrationResult: $('ec-calibration-result'),
+  ecCalibrationResult: $('ec-calibration-result'), ecCalTempInput: $('ec-cal-temp-input'),
   testTempInput: $('test-temp-input'), testTempPresetSelect: $('test-temp-preset'),
   readoutTds: $('readout-tds'), readoutRes: $('readout-res'), readoutSal: $('readout-sal'),
   subTdsMgl: $('sub-tds-mgl'), subTdsGl: $('sub-tds-gl'),
@@ -1116,7 +1122,7 @@ var ecCalibrationModel = null;
 for (var ecSlot = 1; ecSlot <= 10; ecSlot++) {
   var ecRow = document.createElement('div');
   ecRow.className = 'ec-calibration-row';
-  ecRow.innerHTML = '<span>' + ecSlot + '</span><input type="number" id="ec-cal-cond-' + ecSlot + '" aria-label="标定点 ' + ecSlot + ' 参考电导率，微西门子每厘米" value="0" min="0" max="99999999" step="any"><input type="number" id="ec-cal-res-' + ecSlot + '" aria-label="标定点 ' + ecSlot + ' 信号电阻，欧姆" value="0" min="0" max="99999999" step="any">';
+  ecRow.innerHTML = '<span>' + ecSlot + '</span><input type="number" id="ec-cal-cond-' + ecSlot + '" aria-label="标定点 ' + ecSlot + ' 25°C 参考电导率，微西门子每厘米" value="0" min="0" max="99999999" step="any"><input type="number" id="ec-cal-res-' + ecSlot + '" aria-label="标定点 ' + ecSlot + ' 标定温度下的信号电阻，欧姆" value="0" min="0" max="99999999" step="any">';
   $('ec-calibration-inputs').appendChild(ecRow);
 }
 
@@ -1125,8 +1131,20 @@ var tempCompK = SensorMath.temperatureFactor;
 var calcKAtTemp = SensorMath.conductivityAtTemperature;
 var calcK25 = SensorMath.referenceConductivity;
 
-function validECModel(alpha, testTemp) {
-  return tempCompK(alpha, testTemp) > 0;
+function validECModel(alpha, testTemp, calTemp) {
+  return tempCompK(alpha, testTemp) > 0 && tempCompK(alpha, calTemp) > 0;
+}
+
+function fitECCalibration(points) {
+  return SensorMath.fitConductivityCalibration(points.map(function(point){
+    return {conductivity:calcKAtTemp(point.conductivity,state.alpha,state.ecCalTemp),resistance:point.resistance};
+  }));
+}
+
+function refreshECCalibration() {
+  if (!state.ecCalibrationPoints) return;
+  ecCalibrationModel=fitECCalibration(state.ecCalibrationPoints.filter(function(point){return point.conductivity>0;}));
+  el.ecCalibrationResult.textContent='已启用 '+ecCalibrationModel.points.length+' 点 '+(ecCalibrationModel.points.length===2?'线性':'PCHIP')+' 标定（'+state.ecCalTemp.toFixed(1)+'°C）；超出端点范围不外推。';
 }
 
 function formatECConductivity(conductivity) {
@@ -1589,7 +1607,7 @@ function loadSavedState() {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
       var numberRanges = {
         kCell:[0.001,100], alpha:[0,10], simResistance:[0.01,99999999],
-        simConductivity:[0,99999999], refTemp:[25,25], testTemp:[-10,150],
+        simConductivity:[0,99999999], refTemp:[25,25], testTemp:[-10,150], ecCalTemp:[-10,150],
         tdsFactor:[0.3,1], refCond:[0,99999999],
         tempStart:[0,0], tempEnd:[100,100], tempStep:[1,1],
         phSimMv:[-1200,1200], phSimRef:[-2,16], phTestTemp:[-10,150], phCalTemp:[-10,150],
@@ -1610,6 +1628,11 @@ function loadSavedState() {
           else if (['modbusTx','modbusRx','modbusData'].includes(k) && typeof value === 'string' && value.length < 10000) state[k] = value;
         }
       }
+      if (!validECModel(state.alpha, state.testTemp, state.ecCalTemp)) {
+        state.alpha = 2;
+        state.testTemp = 25;
+        state.ecCalTemp = 25;
+      }
       if (Array.isArray(parsed.ecCalibrationPoints) && parsed.ecCalibrationPoints.length===10 &&
           parsed.ecCalibrationPoints.every(function(point,index){
             return point && typeof point.conductivity==='number' && Number.isFinite(point.conductivity) &&
@@ -1618,7 +1641,7 @@ function loadSavedState() {
                 (point.conductivity>0 && point.conductivity<=99999999 && point.resistance>0 && point.resistance<=99999999));
           }) && parsed.ecCalibrationPoints[0].conductivity>0) {
         var savedECPoints=parsed.ecCalibrationPoints.filter(function(point){return point.conductivity>0;});
-        ecCalibrationModel=SensorMath.fitConductivityCalibration(savedECPoints);
+        ecCalibrationModel=fitECCalibration(savedECPoints);
         if (ecCalibrationModel) state.ecCalibrationPoints=parsed.ecCalibrationPoints;
       }
       if (parsed.phSlopeUnit !== 'ratio') {
@@ -1641,10 +1664,6 @@ function loadSavedState() {
           state.phOffset2=savedFit.offset2;
         }
       }
-      if (!validECModel(state.alpha, state.testTemp)) {
-        state.alpha = 2;
-        state.testTemp = 25;
-      }
       if (state.activeFactor === 'modbus') state.viewMode = 'sim';
       updateK25FromSimulation();
     }
@@ -1657,6 +1676,7 @@ function syncStateToDOM() {
   if (el.cellConstantInput) el.cellConstantInput.value = state.kCell.toFixed(3);
   if (el.alphaInput) el.alphaInput.value = state.alpha.toFixed(2);
   if (el.testTempInput) el.testTempInput.value = state.testTemp.toFixed(1);
+  if (el.ecCalTempInput) el.ecCalTempInput.value = state.ecCalTemp.toFixed(1);
   if (el.tdsFactorInput) el.tdsFactorInput.value = state.tdsFactor.toFixed(2);
   
   if (el.simResistanceInput) el.simResistanceInput.value = state.simResistance;
@@ -1668,7 +1688,7 @@ function syncStateToDOM() {
       $('ec-cal-cond-'+(index+1)).value=point.conductivity;
       $('ec-cal-res-'+(index+1)).value=point.resistance;
     });
-    el.ecCalibrationResult.textContent='已恢复 '+ecCalibrationModel.points.length+' 点标定曲线；超出端点范围不外推。';
+    el.ecCalibrationResult.textContent='已恢复 '+ecCalibrationModel.points.length+' 点标定曲线（'+state.ecCalTemp.toFixed(1)+'°C）；超出端点范围不外推。';
   }
 
   if (state.theme === 'dark') {
@@ -1746,7 +1766,7 @@ function syncStateToDOM() {
 
 function globalUpdate() {
   if(state.activeFactor==='ec'){
-    if(!validECModel(state.alpha, state.testTemp)) return;
+    if(!validECModel(state.alpha, state.testTemp, state.ecCalTemp)) return;
     if(!updateK25FromSimulation()) {
       if(state.simMode==='res') el.simConductivityInput.value='';
       else el.simResistanceInput.value='';
@@ -1817,7 +1837,7 @@ function bindPreset(inp,sel,prop,prec,onStateChange) {
     var v=e.target.value;
     if(v!=='custom'){
       var n=Number(v);
-      if (!validNumericInput(inp,n,true) || ((prop==='alpha'||prop==='testTemp') && !validECModel(prop==='alpha'?n:state.alpha,prop==='testTemp'?n:state.testTemp))) {
+      if (!validNumericInput(inp,n,true) || ((prop==='alpha'||prop==='testTemp') && !validECModel(prop==='alpha'?n:state.alpha,prop==='testTemp'?n:state.testTemp,state.ecCalTemp))) {
         sel.value='custom';inp.setAttribute('aria-invalid','true');return;
       }
       inp.removeAttribute('aria-invalid');inp.value=n.toFixed(prec);state[prop]=n;if(onStateChange)onStateChange();globalUpdate();
@@ -1825,7 +1845,7 @@ function bindPreset(inp,sel,prop,prec,onStateChange) {
   });
   inp.addEventListener('input',function(e){
     var n=Number(e.target.value);
-    if (!validNumericInput(inp,n) || ((prop==='alpha'||prop==='testTemp') && !validECModel(prop==='alpha'?n:state.alpha,prop==='testTemp'?n:state.testTemp))) {
+    if (!validNumericInput(inp,n) || ((prop==='alpha'||prop==='testTemp') && !validECModel(prop==='alpha'?n:state.alpha,prop==='testTemp'?n:state.testTemp,state.ecCalTemp))) {
       inp.setAttribute('aria-invalid','true');return;
     }
     inp.removeAttribute('aria-invalid');state[prop]=n;
@@ -1863,11 +1883,11 @@ function updateECCalibration() {
     if(!inactive)points.push(slots[slots.length-1]);
   }
   if(points.length<2) return showECCalibrationError('至少需要 2 个有效点；建议使用覆盖量程的 4～5 个点。');
-  var calibration=SensorMath.fitConductivityCalibration(points);
+  var calibration=fitECCalibration(points);
   if(!calibration) return showECCalibrationError('信号电阻须互不相同，且电阻减小时参考电导率须严格增加。');
   state.ecCalibrationPoints=slots;
   ecCalibrationModel=calibration;
-  el.ecCalibrationResult.textContent='已启用 '+points.length+' 点 '+(points.length===2?'线性':'PCHIP')+' 标定；超出端点范围不外推。';
+  el.ecCalibrationResult.textContent='已启用 '+points.length+' 点 '+(points.length===2?'线性':'PCHIP')+' 标定（'+state.ecCalTemp.toFixed(1)+'°C）；超出端点范围不外推。';
   globalUpdate();
   return true;
 }
@@ -1892,7 +1912,7 @@ for(var ecInputIndex=1;ecInputIndex<=10;ecInputIndex++){
   });
 }
 bindPreset(el.cellConstantInput,el.cellConstantPresetSelect,'kCell',3,retainResistanceBoxInput);
-bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2,retainResistanceBoxInput);
+bindPreset(el.alphaInput,el.alphaPresetSelect,'alpha',2,function(){refreshECCalibration();retainResistanceBoxInput();});
 bindPreset(el.testTempInput,el.testTempPresetSelect,'testTemp',1,retainResistanceBoxInput);
 bindPreset(el.tdsFactorInput,el.tdsFactorPresetSelect,'tdsFactor',2);
 bindPreset(el.phSimMvInput,el.phSimMvPresetSelect,'phSimMv',2);
@@ -1901,13 +1921,14 @@ bindPreset(el.phTestTempInput,el.phTestTempPresetSelect,'phTestTemp',1);
 function bindNumericInput(input, property, afterChange) {
   input.addEventListener('input',function(){
     var value=Number(input.value);
-    if (!validNumericInput(input,value) || (/^phSlope[12]$/.test(property) && !validPhSlope(value))) { input.setAttribute('aria-invalid','true'); return; }
+    if (!validNumericInput(input,value) || (/^phSlope[12]$/.test(property) && !validPhSlope(value)) || (property==='ecCalTemp' && !validECModel(state.alpha,state.testTemp,value))) { input.setAttribute('aria-invalid','true'); return; }
     input.removeAttribute('aria-invalid');
     state[property]=value;
     if (afterChange) afterChange();
     globalUpdate();
   });
 }
+bindNumericInput(el.ecCalTempInput,'ecCalTemp',function(){refreshECCalibration();retainResistanceBoxInput();});
 function useManualPhCalibration() {
   state.phCalibrationPoints=null;
   $('ph-calibration-result').textContent='当前使用手动斜率一/偏移一、斜率二/偏移二；点击“计算标定参数”可重新使用缓冲液测点。';
