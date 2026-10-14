@@ -696,9 +696,9 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           <div class="form-group">
             <div class="label-wrapper"><label>标定温度下的分段参数</label><span class="static-hint">酸侧 / 碱侧</span></div>
             <div class="calibration-grid">
-              <label for="ph-slope-1">斜率一 (mV/pH)<input type="number" id="ph-slope-1" value="59.16" min="0.01" max="120" step="0.01"></label>
+              <label for="ph-slope-1">斜率一 (K1，倍数)<input type="number" id="ph-slope-1" value="1.000" min="0.01" max="2" step="0.001"></label>
               <label for="ph-offset-1">偏移一 (mV)<input type="number" id="ph-offset-1" value="0" min="-1200" max="1200" step="0.01"></label>
-              <label for="ph-slope-2">斜率二 (mV/pH)<input type="number" id="ph-slope-2" value="59.16" min="0.01" max="120" step="0.01"></label>
+              <label for="ph-slope-2">斜率二 (K2，倍数)<input type="number" id="ph-slope-2" value="1.000" min="0.01" max="2" step="0.001"></label>
               <label for="ph-offset-2">偏移二 (mV)<input type="number" id="ph-offset-2" value="0" min="-1200" max="1200" step="0.01"></label>
             </div>
           </div>
@@ -715,7 +715,7 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
             <button type="button" id="ph-calibrate">计算标定参数</button>
             <p class="model-note" id="ph-calibration-result" role="status">三个缓冲液测点须在标定温度下测得；相邻两点分别计算斜率一/偏移一、斜率二/偏移二。</p>
           </div>
-          <p class="model-note">斜率与偏移以标定温度为基准；测试温度只补偿两段斜率，原始 mV 保持不变。pH 7 零点默认 0 mV；温补不代表样品 pH 换算到 25°C。</p>
+          <p class="model-note">斜率一/二是相对理想电极的倍数，默认 1.000；在标定温度求得 K1/K2，测试时按当前温度换算 mV/pH，原始 mV 保持不变。偏移默认 0 mV；温补不代表样品 pH 换算到 25°C。</p>
         </div>
       </div>
       
@@ -891,13 +891,13 @@ select option { background: hsl(222, 28%, 10%); color: hsl(210, 40%, 98%); }
           <h3>一、能斯特 (Nernst) 响应原理</h3>
           
           <div class="formula-block">
-            <p><strong>1. 分段标定与测试温度补偿：</strong> 三个缓冲液点分别求出酸侧、碱侧的斜率与偏移，再按绝对温度比例换算斜率。</p>
-            <div class="math-display">$$ S_{i,test}=S_{i,cal}\frac{t_{test}+273.15}{t_{cal}+273.15},\quad i\in\{1,2\} $$</div>
+            <p><strong>1. 分段标定与测试温度补偿：</strong> 三个缓冲液点分别求出酸侧、碱侧的斜率系数与偏移；斜率系数 1 表示理想电极。</p>
+            <div class="math-display">$$ S_{ideal}(t)=59.16\frac{t+273.15}{298.15},\quad K_i=\frac{S_{i,cal}}{S_{ideal}(t_{cal})},\quad S_{i,test}=K_i S_{ideal}(t_{test}) $$</div>
             <div class="math-legend">
               <p>其中：</p>
               <ul>
-                <li><span class="sym">$S_{1,cal}, S_{2,cal}$</span>：标定温度下酸侧、碱侧的实测斜率，单位为 $mV/pH$</li>
-                <li><span class="sym">$S_{i,test}$</span>：对应分段在测试温度下的补偿斜率，单位为 $mV/pH$</li>
+                <li><span class="sym">$K_1, K_2$</span>：酸侧、碱侧实测斜率相对标定温度下理想斜率的倍数，无单位</li>
+                <li><span class="sym">$S_{i,cal}, S_{i,test}$</span>：对应分段在标定、测试温度下的实际斜率，单位为 $mV/pH$</li>
                 <li><span class="sym">$t_{cal}, t_{test}$</span>：标定温度与当前待测溶液温度，单位为 $^\circ C$</li>
                 <li><span class="sym">$B_1, B_2$</span>：两段在标定温度下求得的偏移，单位为 $mV$</li>
               </ul>
@@ -1058,7 +1058,7 @@ var state = {
   refTemp: 25.0, testTemp: 25.0, tdsFactor: 0.50,
   refCond: 50.00, condUnit: 'uS/cm',
   tempStart: 0, tempEnd: 100, tempStep: 1, chartMode: 'cond',
-  phSimMv: 0.0, phSimRef: 7.00, phSlope1: 59.16, phOffset1: 0, phSlope2: 59.16, phOffset2: 0,
+  phSimMv: 0.0, phSimRef: 7.00, phSlope1: 1, phOffset1: 0, phSlope2: 1, phOffset2: 0, phSlopeUnit: 'ratio',
   phTestTemp: 25.0, phCalTemp: 25.0, phCalibrationPoints: null, phChartMode: 'ph',
   phTempStart: 0, phTempEnd: 100, phTempStep: 1,
   modbusTx: '', modbusRx: '', modbusData: '', modbusProtocol: 'rtu',
@@ -1211,15 +1211,15 @@ function phCalibration() {
 }
 
 function calcPHSlope(testTemp,branch) {
-  return SensorMath.phSlopeAtTemperature(state['phSlope'+branch],state.phCalTemp,testTemp);
+  return SensorMath.phSlopeAtTemperature(state['phSlope'+branch],testTemp);
 }
 
 function calcPHFromMv(mV,testTemp) {
-  return SensorMath.phFromMv(mV,state.phCalTemp,testTemp,phCalibration());
+  return SensorMath.phFromMv(mV,testTemp,phCalibration());
 }
 
 function calcMvFromPH(pH,testTemp) {
-  return SensorMath.mvFromPh(pH,state.phCalTemp,testTemp,phCalibration());
+  return SensorMath.mvFromPh(pH,testTemp,phCalibration());
 }
 
 function updatePHMvFromReference() {
@@ -1232,7 +1232,7 @@ function updatePHSimulationValues() {
   if(el.phSimRefInput&&document.activeElement!==el.phSimRefInput) el.phSimRefInput.value=state.phSimRef.toFixed(2);
   if(el.phMvCalcPh) el.phMvCalcPh.textContent=state.phSimRef.toFixed(2)+' pH';
   if(el.phRefCalcMv) {
-    var branch=SensorMath.phBranchForMv(state.phSimMv,state.phCalTemp,state.phTestTemp,phCalibration());
+    var branch=SensorMath.phBranchForMv(state.phSimMv,state.phTestTemp,phCalibration());
     el.phRefCalcMv.textContent='斜率'+branch+'：'+calcPHSlope(state.phTestTemp,branch).toFixed(2)+' mV/pH';
   }
 }
@@ -1475,7 +1475,7 @@ function updateFormulaCalcs() {
       elSalCalcRes.innerHTML = 'Salinity = ' + (sal===null?'超出经验表范围':sal.toFixed(4) + ' ppt');
     }
   } else {
-    var branch = SensorMath.phBranchForMv(state.phSimMv,state.phCalTemp,state.phTestTemp,phCalibration());
+    var branch = SensorMath.phBranchForMv(state.phSimMv,state.phTestTemp,phCalibration());
     var slope = calcPHSlope(state.phTestTemp,branch);
     var offset = state['phOffset'+branch];
     var pHtClamped = state.phSimRef;
@@ -1485,7 +1485,7 @@ function updateFormulaCalcs() {
     var elSlopeCalc1 = $('ph-calc-slope-1');
     var elSlopeCalcRes = $('ph-calc-slope-res');
     if (elSlopeCalc1 && elSlopeCalcRes) {
-      elSlopeCalc1.innerHTML = 'S<sub>'+branch+',test</sub> = ' + state['phSlope'+branch].toFixed(2) + ' &times; (' + state.phTestTemp.toFixed(1) + ' + 273.15) / (' + state.phCalTemp.toFixed(1) + ' + 273.15)';
+      elSlopeCalc1.innerHTML = 'S<sub>'+branch+',test</sub> = ' + state['phSlope'+branch].toFixed(3) + ' &times; 59.16 &times; (' + state.phTestTemp.toFixed(1) + ' + 273.15) / 298.15';
       elSlopeCalcRes.innerHTML = 'S<sub>'+branch+',test</sub> = ' + slope.toFixed(2) + ' mV/pH';
     }
 
@@ -1536,13 +1536,13 @@ function loadSavedState() {
         tdsFactor:[0.3,1], refCond:[0,99999999],
         tempStart:[0,0], tempEnd:[100,100], tempStep:[1,1],
         phSimMv:[-1200,1200], phSimRef:[-2,16], phTestTemp:[-10,150], phCalTemp:[-10,150],
-        phSlope1:[0.01,120], phOffset1:[-1200,1200], phSlope2:[0.01,120], phOffset2:[-1200,1200],
+        phSlope1:[0.01,2], phOffset1:[-1200,1200], phSlope2:[0.01,2], phOffset2:[-1200,1200],
         phTempStart:[0,0], phTempEnd:[100,100], phTempStep:[1,1]
       };
       var choices = {
         activeFactor:['ec','ph','modbus'], viewMode:['sim','formula'], theme:['light','dark'],
         simResUnit:['ohm','kohm'], simCondInputUnit:['uS/cm','mS/cm'], simMode:['res','cond'],
-        condUnit:['uS/cm'], chartMode:['cond','tds','res','sal'], phChartMode:['ph','hconc'],
+        condUnit:['uS/cm'], chartMode:['cond','tds','res','sal'], phChartMode:['ph','hconc'], phSlopeUnit:['ratio'],
         modbusProtocol:['rtu','tcp'], lastModbusActivePanel:['','tx','rx','data']
       };
       for (var k in parsed) {
@@ -1553,9 +1553,18 @@ function loadSavedState() {
           else if (['modbusTx','modbusRx','modbusData'].includes(k) && typeof value === 'string' && value.length < 10000) state[k] = value;
         }
       }
+      if (parsed.phSlopeUnit !== 'ratio') {
+        [1,2].forEach(function(branch){
+          var oldSlope=parsed['phSlope'+branch];
+          if (typeof oldSlope==='number' && Number.isFinite(oldSlope) && oldSlope>=0.01 && oldSlope<=120) {
+            var ratio=oldSlope/SensorMath.phIdealSlope(state.phCalTemp);
+            if (ratio>=0.01 && ratio<=2) state['phSlope'+branch]=ratio;
+          }
+        });
+      }
       if (Array.isArray(parsed.phCalibrationPoints) && parsed.phCalibrationPoints.length===3 &&
           parsed.phCalibrationPoints.every(function(point){return point && typeof point.ph==='number' && Number.isFinite(point.ph) && point.ph>=-2 && point.ph<=16 && typeof point.mv==='number' && Number.isFinite(point.mv) && point.mv>=-1200 && point.mv<=1200;})) {
-        var savedFit=SensorMath.fitPhCalibration(parsed.phCalibrationPoints);
+        var savedFit=SensorMath.fitPhCalibration(parsed.phCalibrationPoints,state.phCalTemp);
         if (validPhFit(savedFit)) {
           state.phCalibrationPoints=parsed.phCalibrationPoints;
           state.phSlope1=savedFit.slope1;
@@ -1620,7 +1629,7 @@ function syncStateToDOM() {
   if (el.phTestTempInput) el.phTestTempInput.value = state.phTestTemp.toFixed(1);
   if (el.phCalTempInput) el.phCalTempInput.value = state.phCalTemp.toFixed(1);
   [1,2].forEach(function(branch){
-    el['phSlope'+branch+'Input'].value=state['phSlope'+branch].toFixed(2);
+    el['phSlope'+branch+'Input'].value=state['phSlope'+branch].toFixed(3);
     el['phOffset'+branch+'Input'].value=state['phOffset'+branch].toFixed(2);
   });
   if (state.phCalibrationPoints) {
@@ -1628,7 +1637,7 @@ function syncStateToDOM() {
       $('ph-cal-ph-'+(index+1)).value=point.ph.toFixed(2);
       $('ph-cal-mv-'+(index+1)).value=point.mv.toFixed(2);
     });
-    $('ph-calibration-result').textContent='缓冲液点已恢复；斜率一 '+state.phSlope1.toFixed(2)+'、偏移一 '+state.phOffset1.toFixed(2)+'；斜率二 '+state.phSlope2.toFixed(2)+'、偏移二 '+state.phOffset2.toFixed(2)+'。';
+    $('ph-calibration-result').textContent='缓冲液点已恢复；斜率一 '+state.phSlope1.toFixed(3)+'、偏移一 '+state.phOffset1.toFixed(2)+' mV；斜率二 '+state.phSlope2.toFixed(3)+'、偏移二 '+state.phOffset2.toFixed(2)+' mV。';
   }
 
   if ($('modbus-tx-input')) $('modbus-tx-input').value = state.modbusTx || '';
@@ -1771,7 +1780,7 @@ bindNumericInput(el.phOffset2Input,'phOffset2',useManualPhCalibration);
 function validPhFit(fit) {
   return fit && [1,2].every(function(branch){
     var slope=fit['slope'+branch],offset=fit['offset'+branch];
-    return Number.isFinite(slope) && slope>=0.01 && slope<=120 &&
+    return Number.isFinite(slope) && slope>=0.01 && slope<=2 &&
       Number.isFinite(offset) && offset>=-1200 && offset<=1200;
   });
 }
@@ -1786,7 +1795,7 @@ function updatePhCalibration(calibrationTemperature) {
     }
     points.push({ph:phValue,mv:mvValue});
   }
-  var fit=SensorMath.fitPhCalibration(points);
+  var fit=SensorMath.fitPhCalibration(points,calibrationTemperature);
   if (!fit) {result.textContent='标定点的 pH 必须不同。';return false;}
   if (!validPhFit(fit)) {
     result.textContent='标定结果超出可用范围，请检查电极接线和测点数据。';return false;
@@ -1796,10 +1805,10 @@ function updatePhCalibration(calibrationTemperature) {
   [1,2].forEach(function(branch){
     state['phSlope'+branch]=fit['slope'+branch];
     state['phOffset'+branch]=fit['offset'+branch];
-    el['phSlope'+branch+'Input'].value=fit['slope'+branch].toFixed(2);
+    el['phSlope'+branch+'Input'].value=fit['slope'+branch].toFixed(3);
     el['phOffset'+branch+'Input'].value=fit['offset'+branch].toFixed(2);
   });
-  result.textContent='标定温度 '+calibrationTemperature.toFixed(1)+'°C；斜率一 '+fit.slope1.toFixed(2)+' mV/pH、偏移一 '+fit.offset1.toFixed(2)+' mV；斜率二 '+fit.slope2.toFixed(2)+' mV/pH、偏移二 '+fit.offset2.toFixed(2)+' mV。';
+  result.textContent='标定温度 '+calibrationTemperature.toFixed(1)+'°C；斜率一 '+fit.slope1.toFixed(3)+'、偏移一 '+fit.offset1.toFixed(2)+' mV；斜率二 '+fit.slope2.toFixed(3)+'、偏移二 '+fit.offset2.toFixed(2)+' mV。';
   globalUpdate();
   return true;
 }
@@ -1809,8 +1818,8 @@ el.phCalTempInput.addEventListener('input',function() {
     el.phCalTempInput.setAttribute('aria-invalid','true');return;
   }
   el.phCalTempInput.removeAttribute('aria-invalid');
-  state.phCalTemp=temperature;
-  globalUpdate();
+  if (state.phCalibrationPoints) updatePhCalibration(temperature);
+  else {state.phCalTemp=temperature;globalUpdate();}
 });
 for (var calibrationIndex=1;calibrationIndex<=3;calibrationIndex++) {
   ['ph','mv'].forEach(function(kind){
